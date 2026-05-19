@@ -1,133 +1,77 @@
-import axios, { AxiosRequestConfig, AxiosResponse, AxiosError, InternalAxiosRequestConfig } from "axios";
-import { secureStorage } from "./secureStorage";
+// src/utils/axiosInterceptor.ts
 
-// Define API response interface
-interface ApiResponse<T = any> {
-    status: boolean;
-    data: T;
-    message?: string;
-    error?: string;
-}
+import Axios from 'axios';
 
-// Define API error interface
-interface ApiError {
-    error: string | Error;
-    message: string;
-    status?: number;
-    [key: string]: any;
-}
+import { store } from '@/redux/store';
 
-// Create an Axios instance
-const axiosInstance = axios.create();
+import { logout } from '@/redux/slices/authSlice';
+import { secureStorage } from './secureStorage';
 
-// Add a request interceptor
-axiosInstance.interceptors.request.use(
-    async (config: InternalAxiosRequestConfig) => {
-        const token = await secureStorage.getItem("AUTH_TOKEN");
-        if (token && config.headers) {
-            config.headers["Authorization"] = `Bearer ${token}`;
-        }
-        return config;
-    },
-    (error: AxiosError) => {
-        return Promise.reject(error);
+//================ AXIOS INSTANCE =================
+
+const axiosInterceptor = Axios.create({
+  baseURL: 'http://localhost:5001/api',
+
+  timeout: 10000,
+
+  headers: {
+    'Content-Type': 'application/json',
+  },
+});
+
+//================================================
+// REQUEST INTERCEPTOR
+//================================================
+
+axiosInterceptor.interceptors.request.use(
+  async config => {
+    try {
+      const token = await secureStorage.getItem('AUTH_TOKEN');
+
+      console.log(token, '======= INTERCEPTOR TOKEN =======');
+
+      if (token) {
+        config.headers.Authorization = `Bearer ${token}`;
+
+        console.log(`Bearer ${token}`, '======= AUTH HEADER =======');
+      }
+
+      console.log(config.url, '======= REQUEST URL =======');
+
+      console.log(config.data, '======= REQUEST DATA =======');
+
+      return config;
+    } catch (error) {
+      return Promise.reject(error);
     }
+  },
+  error => Promise.reject(error),
 );
 
-function isObject(variable: unknown): variable is Record<string, unknown> {
-    return variable !== null && typeof variable === "object";
-}
+//================================================
+// RESPONSE INTERCEPTOR
+//================================================
 
-export async function apiReq<T = any>(
-    endPoint: string,
-    data: Record<string, any>,
-    method: 'get' | 'post' | 'put' | 'delete',
-    headers: Record<string, string> = {},
-    requestOptions: Partial<AxiosRequestConfig> = {}
-): Promise<ApiResponse<T>> {
-    return new Promise(async (res, rej) => {
-        try {
-            const config: AxiosRequestConfig = {
-                headers,
-                ...requestOptions,
-            };
+axiosInterceptor.interceptors.response.use(
+  response => {
+    console.log(response.data, '======= RESPONSE DATA =======');
 
-            let response: AxiosResponse<ApiResponse<T>>;
+    return response;
+  },
 
-            if (method === "get" || method === "delete") {
-                response = await axiosInstance[method](endPoint, {
-                    ...config,
-                    params: data,
-                });
-            } else {
-                response = await axiosInstance[method](endPoint, data, config);
-            }
+  async error => {
+    console.log(error?.response?.data, '======= API ERROR =======');
 
-            console.log(response, "api response", endPoint);
+    console.log(error?.message, '======= API MESSAGE =======');
 
-            const { data: responseData } = response;
-            if (responseData.status === false) {
-                return rej(responseData);
-            }
-            return res(responseData);
-        } catch (error) {
-            console.log(error, "<===error in utils");
-            if ((error as AxiosError)?.response?.status === 401) {
-                return rej(error);
-            }
+    //================ TOKEN EXPIRED =================
 
-            if (
-                error instanceof AxiosError &&
-                error.response?.data &&
-                isObject(error.response.data)
-            ) {
-                return rej({
-                    ...error.response.data,
-                    error: error.response.data.error || "Network Error",
-                });
-            } else {
-                const apiError: ApiError = {
-                    error: error as Error,
-                    message: error instanceof Error ? error.message : "Network Error",
-                };
-                return rej(apiError);
-            }
-        }
-    });
-}
+    if (error?.response?.status === 401) {
+      store.dispatch(logout());
+    }
 
-export function apiGet<T = any>(
-    endPoint: string,
-    data: Record<string, any> = {},
-    headers: Record<string, string> = {},
-    requestOptions: Partial<AxiosRequestConfig> = {}
-): Promise<ApiResponse<T>> {
-    return apiReq<T>(endPoint, data, "get", headers, requestOptions);
-}
+    return Promise.reject(error);
+  },
+);
 
-export function apiPost<T = any>(
-    endPoint: string,
-    data: Record<string, any>,
-    headers: Record<string, string> = {},
-    requestOptions: Partial<AxiosRequestConfig> = {}
-): Promise<ApiResponse<T>> {
-    return apiReq<T>(endPoint, data, "post", headers, requestOptions);
-}
-
-export function apiPut<T = any>(
-    endPoint: string,
-    data: Record<string, any>,
-    headers: Record<string, string> = {},
-    requestOptions: Partial<AxiosRequestConfig> = {}
-): Promise<ApiResponse<T>> {
-    return apiReq<T>(endPoint, data, "put", headers, requestOptions);
-}
-
-export function apiDelete<T = any>(
-    endPoint: string,
-    data: Record<string, any> = {},
-    headers: Record<string, string> = {},
-    requestOptions: Partial<AxiosRequestConfig> = {}
-): Promise<ApiResponse<T>> {
-    return apiReq<T>(endPoint, data, "delete", headers, requestOptions);
-}
+export default axiosInterceptor;

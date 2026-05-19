@@ -1,14 +1,34 @@
 import React from 'react';
+
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
+
+import { createNativeStackNavigator } from '@react-navigation/native-stack';
+
 import Ionicons from 'react-native-vector-icons/Ionicons';
 
-import { Home, Profile, Settings } from '@/screens';
+import {
+  Home,
+  Profile,
+  Settings,
+  SearchScreen,
+  RideConfirmationScreen,
+  RideDetailsScreen,
+} from '@/screens';
+
 import { MainStackParamList } from '../screens/types';
+
 import MyTabBar from './MyTabBar';
+import ChatScreen from '@/screens/main/Chat/ChatScreen';
 
 const Tab = createBottomTabNavigator<MainStackParamList>();
 
-export const MainStack = () => {
+const Stack = createNativeStackNavigator<MainStackParamList>();
+
+//================================================
+// BOTTOM TABS
+//================================================
+
+const BottomTabs = () => {
   return (
     <Tab.Navigator
       screenOptions={{
@@ -16,6 +36,8 @@ export const MainStack = () => {
       }}
       tabBar={props => <MyTabBar {...props} />}
     >
+      {/* HOME */}
+
       <Tab.Screen
         name="Home"
         component={Home}
@@ -29,6 +51,8 @@ export const MainStack = () => {
           ),
         }}
       />
+
+      {/* PROFILE */}
 
       <Tab.Screen
         name="Profile"
@@ -44,6 +68,8 @@ export const MainStack = () => {
         }}
       />
 
+      {/* SETTINGS */}
+
       <Tab.Screen
         name="Settings"
         component={Settings}
@@ -58,5 +84,35 @@ export const MainStack = () => {
         }}
       />
     </Tab.Navigator>
+  );
+};
+
+//================================================
+// MAIN STACK
+//================================================
+
+export const MainStack = () => {
+  return (
+    <Stack.Navigator
+      screenOptions={{
+        headerShown: false,
+      }}
+    >
+      {/* BOTTOM TABS */}
+
+      <Stack.Screen name="MainTabs" component={BottomTabs} />
+
+      {/* SEARCH SCREEN */}
+
+      <Stack.Screen name="SearchScreen" component={SearchScreen} />
+
+      <Stack.Screen
+        name="RideConfirmation"
+        component={RideConfirmationScreen}
+      />
+      <Stack.Screen name="RideDetailsScreen" component={RideDetailsScreen} />
+
+      <Stack.Screen name="Chat" component={ChatScreen} />
+    </Stack.Navigator>
   );
 };

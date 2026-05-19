@@ -8,6 +8,7 @@ export const STORAGE_KEYS = {
   LANGUAGE: 'language',
   THEME: 'theme',
   FCM_TOKEN: 'fcm_token',
+  USER_TYPE: 'user_type',
 } as const;
 
 export type StorageKeyType = keyof typeof STORAGE_KEYS;
@@ -15,7 +16,9 @@ export type StorageKeyType = keyof typeof STORAGE_KEYS;
 export const secureStorage = {
   async setItem(key: StorageKeyType, value: string) {
     try {
-      await RNSecureStorage.setItem(STORAGE_KEYS[key], value, { accessible: ACCESSIBLE.WHEN_UNLOCKED });
+      await RNSecureStorage.setItem(STORAGE_KEYS[key], value, {
+        accessible: ACCESSIBLE.WHEN_UNLOCKED,
+      });
     } catch (error) {
       console.log('Error storing value:', error);
     }
@@ -41,7 +44,9 @@ export const secureStorage = {
   async setObject(key: StorageKeyType, value: object) {
     try {
       const jsonValue = JSON.stringify(value);
-      await RNSecureStorage.setItem(STORAGE_KEYS[key], jsonValue, { accessible: ACCESSIBLE.WHEN_UNLOCKED });
+      await RNSecureStorage.setItem(STORAGE_KEYS[key], jsonValue, {
+        accessible: ACCESSIBLE.WHEN_UNLOCKED,
+      });
     } catch (error) {
       console.log('Error storing object:', error);
     }
@@ -63,5 +68,5 @@ export const secureStorage = {
     } catch (error) {
       console.log('Error clearing all:', error);
     }
-  }
+  },
 };

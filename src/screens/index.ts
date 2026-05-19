@@ -1,7 +1,11 @@
 export { default as Login } from './auth/Login/Login';
 export { default as Signup } from '../screens/auth/Signup/Signup';
-export { default as OtpVerification } from '../screens/auth/OTPVerification/OtpVerification';
+export { default as OtpVerification } from './auth/OTPVerification/OTPVerification';
 export { default as OnBoarding } from '../screens/OnBoard/OnBoarding';
 export { default as Home } from '../screens/main/Home/Home';
 export { default as Profile } from '../screens/main/Profile/Profile';
 export { default as Settings } from '../screens/main/Settings/Settings';
+export { default as SearchScreen } from '../screens/main/Search/Search';
+export { default as DriverHomeScreen } from '../screens/main/Home/DriverHomeScreen';
+export { default as RideConfirmationScreen } from '../screens/main/Home/RideConfirmationScreen';
+export { default as RideDetailsScreen } from '../screens/main/Home/RideDetailsScreen';
