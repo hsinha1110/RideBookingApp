@@ -1,17 +1,27 @@
 import axios from 'axios';
-import Geolocation from 'react-native-geolocation-service';
 
-const GOOGLE_MAP_KEY = 'AIzaSyCB2sqGXzDeqvTrGp72iOa8fAuS1lPTNzI';
+import Geolocation from '@react-native-community/geolocation';
 
-/**
- * =========================================================
- * 1. SEARCH ADDRESS (Autocomplete)
- * =========================================================
- */
+//================================================
+// GOOGLE MAP KEY
+//================================================
+const GOOGLE_MAP_KEY = 'AIzaSyBSrX-LTpLpIuYgJSS6G0pUfQl6Q-B0y7Y';
+
+//================================================
+// AXIOS INSTANCE
+//================================================
+
+const api = axios.create({
+  timeout: 15000,
+});
+
+//================================================
+// SEARCH ADDRESS
+//================================================
 
 export const searchAddress = async (text: string) => {
   try {
-    const response = await axios.get(
+    const response = await api.get(
       'https://maps.googleapis.com/maps/api/place/autocomplete/json',
       {
         params: {
@@ -21,22 +31,24 @@ export const searchAddress = async (text: string) => {
       },
     );
 
-    return response.data.predictions;
-  } catch (error) {
-    console.log('searchAddress Error:', error);
+    return response.data.predictions || [];
+  } catch (error: any) {
+    console.log(
+      error?.response?.data || error,
+      '======= SEARCH ADDRESS ERROR =======',
+    );
+
     return [];
   }
 };
 
-/**
- * =========================================================
- * 2. GET PLACE DETAILS FROM PLACE ID
- * =========================================================
- */
+//================================================
+// PLACE DETAILS
+//================================================
 
 export const getAddressFromPlaceId = async (placeId: string) => {
   try {
-    const response = await axios.get(
+    const response = await api.get(
       'https://maps.googleapis.com/maps/api/place/details/json',
       {
         params: {
@@ -47,24 +59,26 @@ export const getAddressFromPlaceId = async (placeId: string) => {
     );
 
     return response.data.result;
-  } catch (error) {
-    console.log('getAddressFromPlaceId Error:', error);
+  } catch (error: any) {
+    console.log(
+      error?.response?.data || error,
+      '======= PLACE DETAILS ERROR =======',
+    );
+
     return null;
   }
 };
 
-/**
- * =========================================================
- * 3. GET ADDRESS FROM LAT LNG
- * =========================================================
- */
+//================================================
+// ADDRESS FROM LAT LNG
+//================================================
 
 export const getAddressFromLatLng = async (
   latitude: number,
   longitude: number,
 ) => {
   try {
-    const response = await axios.get(
+    const response = await api.get(
       'https://maps.googleapis.com/maps/api/geocode/json',
       {
         params: {
@@ -74,45 +88,99 @@ export const getAddressFromLatLng = async (
       },
     );
 
+    if (response.data.status !== 'OK') {
+      return null;
+    }
+
     return response.data.results[0];
-  } catch (error) {
-    console.log('getAddressFromLatLng Error:', error);
+  } catch (error: any) {
+    console.log(
+      error?.response?.data || error,
+      '======= GEOCODE ERROR =======',
+    );
+
     return null;
   }
 };
 
-/**
- * =========================================================
- * 4. GET CURRENT LOCATION
- * =========================================================
- */
+//================================================
+// GET CURRENT LOCATION
+//================================================
 
 export const getCurrentLocation = (): Promise<any> => {
   return new Promise((resolve, reject) => {
     Geolocation.getCurrentPosition(
       position => {
+        console.log(
+          position.coords,
+          '======= CURRENT LOCATION SUCCESS =======',
+        );
+
         resolve(position.coords);
       },
 
       error => {
-        console.log('Location Error:', error);
+        console.log(error, '======= CURRENT LOCATION ERROR =======');
+
         reject(error);
       },
 
       {
-        enableHighAccuracy: true,
-        timeout: 15000,
+        enableHighAccuracy: false,
+        timeout: 30000,
         maximumAge: 10000,
+        forceRequestLocation: true,
+        showLocationDialog: true,
       },
     );
   });
 };
 
-/**
- * =========================================================
- * 5. GET DIRECTIONS / ROUTE
- * =========================================================
- */
+//================================================
+// WATCH LIVE LOCATION
+//================================================
+
+export const watchCurrentLocation = (
+  onLocationUpdate: (coords: any) => void,
+  onError?: (error: any) => void,
+) => {
+  const watchId = Geolocation.watchPosition(
+    position => {
+      console.log(position.coords, '======= LIVE LOCATION SUCCESS =======');
+
+      onLocationUpdate(position.coords);
+    },
+
+    error => {
+      console.log(error, '======= LIVE LOCATION ERROR =======');
+
+      onError?.(error);
+    },
+
+    {
+      enableHighAccuracy: false,
+      distanceFilter: 0,
+      interval: 5000,
+      fastestInterval: 2000,
+      forceRequestLocation: true,
+      showLocationDialog: true,
+    },
+  );
+
+  return watchId;
+};
+
+//================================================
+// CLEAR LOCATION WATCHER
+//================================================
+
+export const clearLocationWatcher = (watchId: number) => {
+  Geolocation.clearWatch(watchId);
+};
+
+//================================================
+// DIRECTIONS
+//================================================
 
 export const getDirections = async (
   originLat: number,
@@ -121,7 +189,7 @@ export const getDirections = async (
   destLng: number,
 ) => {
   try {
-    const response = await axios.get(
+    const response = await api.get(
       'https://maps.googleapis.com/maps/api/directions/json',
       {
         params: {
@@ -133,8 +201,12 @@ export const getDirections = async (
     );
 
     return response.data.routes[0];
-  } catch (error) {
-    console.log('getDirections Error:', error);
+  } catch (error: any) {
+    console.log(
+      error?.response?.data || error,
+      '======= DIRECTIONS ERROR =======',
+    );
+
     return null;
   }
 };

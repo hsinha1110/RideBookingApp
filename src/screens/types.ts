@@ -62,7 +62,12 @@ export type MainStackParamList = {
   };
 
   SearchScreen: {
-    location: string;
+    location: {
+      latitude: number;
+      longitude: number;
+    };
+
+    pickupAddress: string;
   };
 };
 

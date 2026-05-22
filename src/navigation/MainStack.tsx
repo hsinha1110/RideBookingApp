@@ -111,7 +111,6 @@ export const MainStack = () => {
         component={RideConfirmationScreen}
       />
       <Stack.Screen name="RideDetailsScreen" component={RideDetailsScreen} />
-
       <Stack.Screen name="Chat" component={ChatScreen} />
     </Stack.Navigator>
   );

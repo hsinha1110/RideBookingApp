@@ -1,7 +1,9 @@
 import React, { FC, useEffect, useRef, useState } from 'react';
 
 import {
+  ActivityIndicator,
   FlatList,
+  Platform,
   Pressable,
   StyleSheet,
   Text,
@@ -13,62 +15,162 @@ import {
 import MapView, { Marker, PROVIDER_GOOGLE, Region } from 'react-native-maps';
 
 import Icon from 'react-native-vector-icons/Ionicons';
-import { useNavigation } from '@react-navigation/native';
+
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { NavigationProp, PlaceItem } from '@/screens/types';
+
+import { useNavigation } from '@react-navigation/native';
+
+import { PlaceItem } from '@/screens/types';
+
+import { NavigationProp } from '@/components/types';
 
 import {
-  getCurrentLocation,
   getAddressFromLatLng,
-  searchAddress,
   getAddressFromPlaceId,
+  getCurrentLocation,
+  watchCurrentLocation,
+  clearLocationWatcher,
 } from '@/utils/services';
 
-const Home: FC = () => {
-  const [currentLocation, setCurrentLocation] = useState('');
+//================================================
+// SCREEN
+//================================================
 
-  const [region, setRegion] = useState({
-    latitude: 22.7196,
-    longitude: 75.8577,
-    latitudeDelta: 0.01,
-    longitudeDelta: 0.01,
-  });
+const Home: FC = () => {
+  //================================================
+  // REFS
+  //================================================
+
+  const mapRef = useRef<MapView>(null);
+
+  const watchIdRef = useRef<any>(null);
+
+  //================================================
+  // NAVIGATION
+  //================================================
+
+  const navigation = useNavigation<NavigationProp>();
+
+  //================================================
+  // STATES
+  //================================================
+
+  const [loading, setLoading] = useState(true);
+
+  const [pickupAddress, setPickupAddress] = useState('');
 
   const [destination, setDestination] = useState('');
 
   const [places, setPlaces] = useState<PlaceItem[]>([]);
-  const mapRef = useRef<MapView>(null);
-  const navigation = useNavigation<NavigationProp>();
+
+  const [region, setRegion] = useState<Region | null>(null);
+
+  //================================================
+  // INITIAL LOCATION
+  //================================================
 
   useEffect(() => {
-    getUserCurrentLocation();
+    getInitialLocation();
+
+    return () => {
+      if (watchIdRef.current !== null) {
+        clearLocationWatcher(watchIdRef.current);
+      }
+    };
   }, []);
 
-  const getUserCurrentLocation = async () => {
+  //================================================
+  // GET INITIAL LOCATION
+  //================================================
+
+  const getInitialLocation = async () => {
     try {
+      setLoading(true);
+
       const coords = await getCurrentLocation();
-      console.log('COORDS =>', coords);
-      const latitude = coords.latitude;
-      const longitude = coords.longitude;
-      setRegion({
-        latitude,
-        longitude,
+
+      const newRegion: Region = {
+        latitude: coords.latitude,
+        longitude: coords.longitude,
         latitudeDelta: 0.01,
         longitudeDelta: 0.01,
-      });
+      };
 
-      const response = await getAddressFromLatLng(latitude, longitude);
-      console.log('ADDRESS RESPONSE =>', response);
-      const fullAddress = response?.formatted_address;
-      if (fullAddress) {
-        setCurrentLocation(fullAddress);
-      } else {
-        setCurrentLocation(`${latitude}, ${longitude}`);
+      setRegion(newRegion);
+
+      setTimeout(() => {
+        mapRef.current?.animateToRegion(newRegion, 1000);
+      }, 500);
+
+      const response = await getAddressFromLatLng(
+        coords.latitude,
+        coords.longitude,
+      );
+
+      if (response?.formatted_address) {
+        setPickupAddress(response.formatted_address);
       }
+
+      // START LIVE LOCATION
+      startLiveLocation();
     } catch (error) {
-      console.log('LOCATION ERROR =>', error);
+      console.log(error, '======= INITIAL LOCATION ERROR =======');
+    } finally {
+      setLoading(false);
     }
   };
+
+  //================================================
+  // LIVE LOCATION
+  //================================================
+
+  const startLiveLocation = () => {
+    watchIdRef.current = watchCurrentLocation(async coords => {
+      try {
+        const newRegion: Region = {
+          latitude: coords.latitude,
+          longitude: coords.longitude,
+          latitudeDelta: 0.01,
+          longitudeDelta: 0.01,
+        };
+
+        // FIRST TIME ONLY
+        if (!region) {
+          setRegion(newRegion);
+        }
+
+        mapRef.current?.animateCamera(
+          {
+            center: {
+              latitude: coords.latitude,
+              longitude: coords.longitude,
+            },
+            zoom: 16,
+          },
+          { duration: 1000 },
+        );
+
+        const response = await getAddressFromLatLng(
+          coords.latitude,
+          coords.longitude,
+        );
+
+        if (response?.formatted_address) {
+          setPickupAddress(response.formatted_address);
+        }
+
+        setLoading(false);
+      } catch (error) {
+        console.log(error, '======= LIVE LOCATION ERROR =======');
+
+        setLoading(false);
+      }
+    });
+  };
+
+  //================================================
+  // SELECT PLACE
+  //================================================
 
   const handleSelectPlace = async (item: PlaceItem) => {
     try {
@@ -95,18 +197,36 @@ const Home: FC = () => {
 
       setPlaces([]);
     } catch (error) {
-      console.log('PLACE SELECT ERROR:', error);
+      console.log(error, '======= PLACE ERROR =======');
     }
   };
+
+  //================================================
+  // LOADER
+  //================================================
+
+  if (loading || !region) {
+    return (
+      <View style={styles.loaderContainer}>
+        <ActivityIndicator size="large" color="black" />
+      </View>
+    );
+  }
+
+  //================================================
+  // UI
+  //================================================
 
   return (
     <SafeAreaView style={styles.container}>
       <MapView
-        provider={PROVIDER_GOOGLE}
+        ref={mapRef}
+        provider={Platform.OS === 'android' ? PROVIDER_GOOGLE : undefined}
         style={styles.map}
-        region={region}
-        showsUserLocation
-        showsMyLocationButton
+        initialRegion={region}
+        showsUserLocation={true}
+        followsUserLocation={true}
+        showsMyLocationButton={true}
       >
         <Marker
           coordinate={{
@@ -114,83 +234,58 @@ const Home: FC = () => {
             longitude: region.longitude,
           }}
           title="Current Location"
-          description={currentLocation}
+          description={pickupAddress}
         />
       </MapView>
 
-      {/* SEARCH LIST */}
-
-      {places.length > 0 && (
-        <View style={styles.searchContainer}>
-          <FlatList
-            data={places}
-            keyExtractor={item => item.place_id}
-            keyboardShouldPersistTaps="handled"
-            renderItem={({ item }) => (
-              <TouchableOpacity
-                style={styles.placeItem}
-                activeOpacity={0.8}
-                onPress={() => handleSelectPlace(item)}
-              >
-                <Icon name="location" size={18} color="#000" />
-
-                <Text style={styles.placeText}>{item.description}</Text>
-              </TouchableOpacity>
-            )}
-          />
-        </View>
-      )}
-
-      {/* BOTTOM CARD */}
+      {/*================================================
+        BOTTOM CARD
+      =================================================*/}
 
       <View style={styles.bottomCard}>
-        {/* DRAG LINE */}
-
         <View style={styles.dragLine} />
-
-        {/* TITLE */}
 
         <Text style={styles.title}>Find a Ride</Text>
 
-        {/* CURRENT LOCATION INPUT */}
+        {/* PICKUP */}
 
         <View style={styles.inputContainer}>
           <Icon name="location-outline" size={20} color="#000" />
 
           <TextInput
-            value={currentLocation}
+            value={pickupAddress}
             editable={false}
-            placeholder="Current Location"
+            placeholder="Pickup Location"
             placeholderTextColor="#666"
             style={styles.input}
           />
         </View>
 
-        {/* DESTINATION INPUT */}
+        {/* DESTINATION */}
 
         <Pressable
-          onPress={() =>
-            navigation.navigate('SearchScreen', {
-              location: currentLocation,
-            })
-          }
           style={styles.inputContainer}
+          onPress={() => {
+            navigation.navigate('SearchScreen', {
+              location: {
+                latitude: region.latitude,
+                longitude: region.longitude,
+              },
+
+              pickupAddress,
+            });
+          }}
         >
-          <Icon name="navigate" size={22} color="#777" />
-          <View
+          <Icon name="navigate" size={20} color="#000" />
+
+          <TextInput
+            value={destination}
+            editable={false}
             pointerEvents="none"
-            style={{
-              flex: 1,
-            }}
-          >
-            <TextInput
-              value={destination}
-              editable={false}
-              placeholder="Enter Destination"
-              placeholderTextColor="#666"
-              style={styles.input}
-            />
-          </View>
+            placeholder="Enter Destination"
+            placeholderTextColor="#666"
+            style={styles.input}
+          />
         </Pressable>
       </View>
     </SafeAreaView>
@@ -212,126 +307,55 @@ const styles = StyleSheet.create({
     flex: 1,
   },
 
-  //================================================
-  // SEARCH RESULTS
-  //================================================
-
-  searchContainer: {
-    position: 'absolute',
-
-    bottom: 220,
-
-    width: '100%',
-
-    paddingHorizontal: 20,
-  },
-
-  placeItem: {
-    flexDirection: 'row',
-
-    alignItems: 'center',
-
-    backgroundColor: '#fff',
-
-    padding: 14,
-
-    borderBottomWidth: 1,
-
-    borderBottomColor: '#eee',
-  },
-
-  placeText: {
+  loaderContainer: {
     flex: 1,
-
-    marginLeft: 10,
-
-    color: '#000',
+    justifyContent: 'center',
+    alignItems: 'center',
   },
-
-  //================================================
-  // BOTTOM CARD
-  //================================================
 
   bottomCard: {
     position: 'absolute',
-
     bottom: 0,
-
     width: '100%',
-
     backgroundColor: '#fff',
-
     borderTopLeftRadius: 28,
-
     borderTopRightRadius: 28,
-
     paddingHorizontal: 20,
-
     paddingTop: 16,
-
     paddingBottom: 30,
-
-    shadowColor: '#000',
-
-    shadowOffset: {
-      width: 0,
-      height: -3,
-    },
-
-    shadowOpacity: 0.1,
-
-    shadowRadius: 10,
-
     elevation: 10,
   },
 
   dragLine: {
     width: 50,
-
     height: 5,
-
     borderRadius: 10,
-
     backgroundColor: '#D9D9D9',
-
     alignSelf: 'center',
-
     marginBottom: 18,
   },
 
   title: {
     fontSize: 28,
-
     fontWeight: '700',
-
     color: '#000',
-
     marginBottom: 20,
   },
 
   inputContainer: {
     height: 56,
-    flex: 1,
     backgroundColor: '#F5F5F5',
-
     borderRadius: 14,
-
     flexDirection: 'row',
-
     alignItems: 'center',
-
     paddingHorizontal: 16,
-
     marginBottom: 16,
   },
 
   input: {
     flex: 1,
-
     marginLeft: 12,
-
     color: '#000',
-
     fontSize: 15,
   },
 });

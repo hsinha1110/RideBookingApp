@@ -18,7 +18,7 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
   ) -> Bool {
 
     // GOOGLE MAPS API KEY
-    GMSServices.provideAPIKey("AIzaSyCB2sqGXzDeqvTrGp72iOa8fAuS1lPTNzI")
+    GMSServices.provideAPIKey("AIzaSyBSrX-LTpLpIuYgJSS6G0pUfQl6Q-B0y7Y")
 
     let delegate = ReactNativeDelegate()
     let factory = RCTReactNativeFactory(delegate: delegate)

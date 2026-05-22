@@ -72,7 +72,7 @@ const ProfileScreen: FC = () => {
 
           <FastImage
             source={{
-              uri: item?.driver?.profileImage || 'https://i.pravatar.cc/300',
+              uri: 'https://i.pravatar.cc/300?img=12',
             }}
             style={styles.profileImage}
           />

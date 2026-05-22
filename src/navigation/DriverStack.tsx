@@ -27,7 +27,6 @@ export const DriverStack = () => {
       {/* SETTINGS */}
 
       <Stack.Screen name="Settings" component={Settings} />
-
       <Stack.Screen name="Chat" component={ChatScreen} />
     </Stack.Navigator>
   );

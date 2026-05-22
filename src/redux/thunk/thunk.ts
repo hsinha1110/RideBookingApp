@@ -7,10 +7,13 @@ import {
   allRiderRidesService,
   cancelRideService,
   getChatMessagesService,
+  getDriverStatusService,
   loginService,
   requestRideService,
   sendOtpService,
   signUpService,
+  updateBackgroundLocationService,
+  updateDriverLocationService,
   verifyOtpService,
 } from '../services/services';
 import { ErrorResponse, loginPayload, SignUpPayload } from '../types';
@@ -91,16 +94,23 @@ export const verifyOtpAsyncThunk = createAsyncThunk(
   ) => {
     try {
       const response = await verifyOtpService(payload);
+
       console.log(response.data, '======= VERIFY OTP RESPONSE =======');
-      if (response.data?.token) {
-        await secureStorage.setItem('AUTH_TOKEN', response.data.token);
+
+      // FIXED
+      if (response.data?.data?.token) {
+        await secureStorage.setItem('AUTH_TOKEN', response.data.data.token);
       }
-      if (response.data?.user) {
-        await secureStorage.setObject('USER_DATA', response.data.user);
+
+      // FIXED
+      if (response.data?.data) {
+        await secureStorage.setObject('USER_DATA', response.data.data);
       }
+
       return response.data;
     } catch (error) {
       const err = error as AxiosError<ErrorResponse>;
+
       return rejectWithValue(
         err.response?.data || {
           message: 'OTP verification failed',
@@ -181,7 +191,7 @@ export const acceptRejectAsyncThunk = createAsyncThunk(
   async (
     payload: {
       rideId: string;
-      status: 'accepted' | 'rejected';
+      status: 'accepted' | 'cancelled';
     },
 
     { rejectWithValue },
@@ -189,12 +199,9 @@ export const acceptRejectAsyncThunk = createAsyncThunk(
     try {
       const response = await acceptRejectRideService(payload);
 
-      console.log(
-        response.data.messages,
-        '======= ACCEPT/REJECT RIDE RESPONSE =======',
-      );
+      console.log(response.data, '======= ACCEPT/REJECT RIDE RESPONSE =======');
 
-      return response.data.messages;
+      return response.data;
     } catch (error) {
       const err = error as AxiosError<ErrorResponse>;
 
@@ -247,6 +254,95 @@ export const getChatMessagesAsyncThunk = createAsyncThunk(
 
       return rejectWithValue(
         error?.response?.data?.message || 'Something went wrong',
+      );
+    }
+  },
+);
+
+export const driverStatusAsyncThunk = createAsyncThunk(
+  ASYNC_ROUTES.DRIVER_STATUS,
+
+  async (
+    payload: {
+      riderId: string;
+    },
+    { rejectWithValue },
+  ) => {
+    try {
+      const response = await getDriverStatusService(payload);
+
+      console.log(response.data, '======= DRIVER STATUS RESPONSE =======');
+
+      return response.data;
+    } catch (error: any) {
+      console.log(error?.response?.data, '======= DRIVER STATUS ERROR =======');
+
+      return rejectWithValue(
+        error?.response?.data?.message || 'Something went wrong',
+      );
+    }
+  },
+);
+export const updateDriverLocationAsyncThunk = createAsyncThunk(
+  ASYNC_ROUTES.UPDATE_DRIVER_LOCATION,
+
+  async (
+    payload: {
+      driverId: string;
+      lat: number;
+      lng: number;
+      heading?: number;
+      rideId?: string | null;
+    },
+    { rejectWithValue },
+  ) => {
+    try {
+      const response = await updateDriverLocationService(payload);
+      console.log(response, '.........jeladsds');
+      console.log(
+        response.data,
+        '======= UPDATE DRIVER LOCATION RESPONSE =======',
+      );
+
+      return response.data;
+    } catch (error: any) {
+      console.log(
+        error?.response?.data,
+        '======= UPDATE DRIVER LOCATION ERROR =======',
+      );
+
+      return rejectWithValue(
+        error?.response?.data?.message || 'Location update failed',
+      );
+    }
+  },
+);
+
+export const updateBackgroundLocationAsyncThunk = createAsyncThunk(
+  ASYNC_ROUTES.LOCATION_BACKGROUND,
+
+  async (
+    payload: {
+      driverId: string;
+
+      rideId: string;
+
+      latitude: number;
+
+      longitude: number;
+
+      heading?: number;
+    },
+
+    { rejectWithValue },
+  ) => {
+    try {
+      const response = await updateBackgroundLocationService(payload);
+
+      return response.data;
+    } catch (error: any) {
+      return rejectWithValue(
+        error?.response?.data?.message || 'Background location update failed',
       );
     }
   },
