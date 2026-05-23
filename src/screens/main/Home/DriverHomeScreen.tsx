@@ -40,7 +40,7 @@ import { moderateScale } from '@/styles/scaling';
 // GOOGLE API
 //================================================
 
-const GOOGLE_MAP_KEY = 'YOUR_GOOGLE_MAP_KEY';
+const GOOGLE_MAP_KEY = 'AIzaSyBSrX-LTpLpIuYgJSS6G0pUfQl6Q-B0y7Y';
 
 //================================================
 // SCREEN

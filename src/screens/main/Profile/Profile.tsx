@@ -1,24 +1,28 @@
+//================================================
+// PROFILE SCREEN
+//================================================
+
 import React, { FC, useEffect, useState } from 'react';
+
 import FastImage from '@d11/react-native-fast-image';
 
 import {
   ActivityIndicator,
   FlatList,
-  Image,
   StyleSheet,
   Text,
-  TouchableOpacity,
   View,
 } from 'react-native';
 
-import { SafeAreaView } from 'react-native-safe-area-context';
-
 import { useDispatch, useSelector } from 'react-redux';
+
+import WrapperContainer from '@/components/WrapperContainer';
+
+import RoleTabs from '@/components/RolesTab';
 
 import { AppDispatch, RootState } from '@/redux/store';
 
 import { allRiderRidesAsyncThunk } from '@/redux/thunk/thunk';
-import WrapperContainer from '@/components/WrapperContainer';
 
 //================================================
 // SCREEN
@@ -29,7 +33,7 @@ const ProfileScreen: FC = () => {
   // STATES
   //================================================
 
-  const [selectedTab, setSelectedTab] = useState<'current' | 'past'>('current');
+  const [selectedRole, setSelectedRole] = useState<'rider' | 'driver'>('rider');
 
   //================================================
   // DISPATCH
@@ -50,8 +54,10 @@ const ProfileScreen: FC = () => {
   //================================================
 
   useEffect(() => {
-    dispatch(allRiderRidesAsyncThunk(selectedTab));
-  }, [dispatch, selectedTab]);
+    dispatch(
+      allRiderRidesAsyncThunk(selectedRole === 'rider' ? 'current' : 'past'),
+    );
+  }, [dispatch, selectedRole]);
 
   //================================================
   // DATA
@@ -73,24 +79,21 @@ const ProfileScreen: FC = () => {
 
           <FastImage
             source={{
-              uri: 'https://i.pravatar.cc/300?img=12',
+              uri:
+                item?.driver?.profileImage ||
+                'https://i.pravatar.cc/300?img=12',
             }}
             style={styles.profileImage}
           />
 
           {/* DETAILS */}
 
-          <View
-            style={{
-              flex: 1,
-              marginLeft: 12,
-            }}
-          >
+          <View style={styles.userContainer}>
             <Text style={styles.name}>
               {item?.driver?.fullName || 'Driver'}
             </Text>
 
-            <Text style={styles.rating}>⭐ 4.9</Text>
+            <Text style={styles.rating}>⭐ {item?.driver?.rating || 4.9}</Text>
           </View>
 
           {/* PRICE */}
@@ -103,8 +106,8 @@ const ProfileScreen: FC = () => {
         <View style={styles.locationRow}>
           <View style={styles.greenDot} />
 
-          <Text style={styles.locationText} numberOfLines={1}>
-            {item?.pickupLocation?.address}
+          <Text numberOfLines={1} style={styles.locationText}>
+            {item?.pickupLocation?.address || 'Pickup Location'}
           </Text>
         </View>
 
@@ -113,31 +116,26 @@ const ProfileScreen: FC = () => {
         <View style={styles.locationRow}>
           <View style={styles.redDot} />
 
-          <Text style={styles.locationText} numberOfLines={1}>
-            {item?.destinationLocation?.address}
+          <Text numberOfLines={1} style={styles.locationText}>
+            {item?.destinationLocation?.address || 'Destination Location'}
           </Text>
         </View>
 
         {/* STATUS */}
 
-        <View
-          style={{
-            marginTop: 14,
-          }}
-        >
+        <View style={styles.statusContainer}>
           <Text
-            style={{
-              fontSize: 13,
-
-              fontWeight: '600',
-
-              color:
-                item?.status === 'completed'
-                  ? 'green'
-                  : item?.status === 'cancelled'
-                  ? 'red'
-                  : '#FF9800',
-            }}
+            style={[
+              styles.statusText,
+              {
+                color:
+                  item?.status === 'completed'
+                    ? '#16A34A'
+                    : item?.status === 'cancelled'
+                    ? '#DC2626'
+                    : '#F59E0B',
+              },
+            ]}
           >
             {item?.status?.toUpperCase()}
           </Text>
@@ -166,81 +164,26 @@ const ProfileScreen: FC = () => {
 
       <Text style={styles.header}>My Rides</Text>
 
-      {/* TABS */}
+      {/* ROLE TABS */}
 
-      <View style={styles.tabContainer}>
-        {/* CURRENT */}
-
-        <TouchableOpacity
-          activeOpacity={0.8}
-          onPress={() => {
-            setSelectedTab('current');
-          }}
-          style={[
-            styles.tabButton,
-            {
-              backgroundColor: selectedTab === 'current' ? 'black' : '#F3F3F3',
-            },
-          ]}
-        >
-          <Text
-            style={[
-              styles.tabText,
-              {
-                color: selectedTab === 'current' ? '#fff' : '#000',
-              },
-            ]}
-          >
-            Current
-          </Text>
-        </TouchableOpacity>
-
-        {/* PAST */}
-
-        <TouchableOpacity
-          activeOpacity={0.8}
-          onPress={() => {
-            setSelectedTab('past');
-          }}
-          style={[
-            styles.tabButton,
-            {
-              backgroundColor: selectedTab === 'past' ? 'green' : '#F3F3F3',
-            },
-          ]}
-        >
-          <Text
-            style={[
-              styles.tabText,
-              {
-                color: selectedTab === 'past' ? '#fff' : '#000',
-              },
-            ]}
-          >
-            Past
-          </Text>
-        </TouchableOpacity>
-      </View>
+      <RoleTabs
+        selectedRole={selectedRole}
+        onChangeRole={(role: any) => {
+          setSelectedRole(role);
+        }}
+      />
 
       {/* LOADER */}
 
       {loading ? (
-        <ActivityIndicator
-          size="large"
-          color="black"
-          style={{
-            marginTop: 50,
-          }}
-        />
+        <ActivityIndicator size="large" color="#000" style={styles.loader} />
       ) : (
         <FlatList
           data={data}
           keyExtractor={(item: any) => item._id}
           renderItem={renderItem}
           showsVerticalScrollIndicator={false}
-          contentContainerStyle={{
-            paddingBottom: 100,
-          }}
+          contentContainerStyle={styles.contentContainer}
           ListEmptyComponent={() => {
             return (
               <View style={styles.emptyContainer}>
@@ -264,72 +207,52 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
 
-    backgroundColor: '#fff',
+    backgroundColor: '#FFFFFF',
 
     paddingHorizontal: 20,
   },
 
   header: {
-    fontSize: 28,
+    fontSize: 30,
 
     fontWeight: '700',
 
-    color: '#000',
+    color: '#111827',
 
     marginTop: 20,
 
     marginBottom: 20,
   },
 
-  tabContainer: {
-    flexDirection: 'row',
-
-    backgroundColor: '#F3F3F3',
-
-    borderRadius: 14,
-
-    padding: 4,
-
-    marginBottom: 20,
+  loader: {
+    marginTop: 80,
   },
 
-  tabButton: {
-    flex: 1,
-
-    paddingVertical: 12,
-
-    borderRadius: 12,
-
-    alignItems: 'center',
-  },
-
-  tabText: {
-    fontSize: 14,
-
-    fontWeight: '600',
+  contentContainer: {
+    paddingBottom: 100,
   },
 
   card: {
-    backgroundColor: '#fff',
+    backgroundColor: '#FFFFFF',
 
-    borderRadius: 18,
+    borderRadius: 22,
 
     padding: 16,
 
-    marginBottom: 16,
-
-    elevation: 4,
+    marginBottom: 18,
 
     shadowColor: '#000',
 
-    shadowOpacity: 0.1,
+    shadowOpacity: 0.08,
 
-    shadowRadius: 8,
+    shadowRadius: 10,
 
     shadowOffset: {
       width: 0,
       height: 4,
     },
+
+    elevation: 5,
   },
 
   topRow: {
@@ -339,11 +262,17 @@ const styles = StyleSheet.create({
   },
 
   profileImage: {
-    width: 55,
+    width: 58,
 
-    height: 55,
+    height: 58,
 
     borderRadius: 100,
+  },
+
+  userContainer: {
+    flex: 1,
+
+    marginLeft: 14,
   },
 
   name: {
@@ -351,23 +280,23 @@ const styles = StyleSheet.create({
 
     fontWeight: '700',
 
-    color: '#000',
+    color: '#111827',
   },
 
   rating: {
     fontSize: 13,
 
-    color: '#777',
+    color: '#6B7280',
 
-    marginTop: 2,
+    marginTop: 3,
   },
 
   price: {
-    fontSize: 18,
+    fontSize: 20,
 
     fontWeight: '700',
 
-    color: 'green',
+    color: '#16A34A',
   },
 
   locationRow: {
@@ -375,7 +304,7 @@ const styles = StyleSheet.create({
 
     alignItems: 'center',
 
-    marginTop: 14,
+    marginTop: 16,
   },
 
   greenDot: {
@@ -385,7 +314,7 @@ const styles = StyleSheet.create({
 
     borderRadius: 100,
 
-    backgroundColor: 'green',
+    backgroundColor: '#22C55E',
 
     marginRight: 10,
   },
@@ -397,7 +326,7 @@ const styles = StyleSheet.create({
 
     borderRadius: 100,
 
-    backgroundColor: 'red',
+    backgroundColor: '#EF4444',
 
     marginRight: 10,
   },
@@ -407,7 +336,17 @@ const styles = StyleSheet.create({
 
     fontSize: 14,
 
-    color: '#333',
+    color: '#374151',
+  },
+
+  statusContainer: {
+    marginTop: 18,
+  },
+
+  statusText: {
+    fontSize: 13,
+
+    fontWeight: '700',
   },
 
   bottomRow: {
@@ -415,30 +354,38 @@ const styles = StyleSheet.create({
 
     justifyContent: 'space-between',
 
+    alignItems: 'center',
+
     marginTop: 18,
+
+    borderTopWidth: 1,
+
+    borderTopColor: '#F3F4F6',
+
+    paddingTop: 14,
   },
 
   carText: {
     fontSize: 12,
 
-    color: '#666',
+    color: '#6B7280',
   },
 
   dateText: {
     fontSize: 12,
 
-    color: '#666',
+    color: '#6B7280',
   },
 
   emptyContainer: {
     alignItems: 'center',
 
-    marginTop: 100,
+    marginTop: 120,
   },
 
   emptyText: {
     fontSize: 16,
 
-    color: '#777',
+    color: '#9CA3AF',
   },
 });

@@ -26,6 +26,8 @@ require_relative '../node_modules/react-native-permissions/scripts/setup'
 
 platform :ios, min_ios_version_supported
 
+use_modular_headers!
+
 prepare_react_native_project!
 
 #================================================
@@ -47,11 +49,17 @@ setup_permissions([
 target 'RideBookingApp' do
 
   #==============================================
+  # FIREBASE FIX
+  #==============================================
+
+  pod 'FirebaseCoreInternal', :modular_headers => true
+  pod 'GoogleUtilities', :modular_headers => true
+
+  #==============================================
   # REACT NATIVE MAPS
   #==============================================
 
-  rn_maps_path =
-    '../node_modules/react-native-maps'
+  rn_maps_path = '../node_modules/react-native-maps'
 
   pod 'react-native-maps/Google',
     :path => rn_maps_path
@@ -63,18 +71,11 @@ target 'RideBookingApp' do
   config = use_native_modules!
 
   #==============================================
-  # FRAMEWORKS
-  #==============================================
-
-  use_frameworks! :linkage => :static
-
-  #==============================================
   # REACT NATIVE
   #==============================================
 
   use_react_native!(
     :path => config[:reactNativePath],
-
     :app_path =>
       "#{Pod::Config.instance.installation_root}/..",
   )
@@ -87,10 +88,9 @@ target 'RideBookingApp' do
 
     react_native_post_install(
       installer,
-
       config[:reactNativePath],
-
       :mac_catalyst_enabled => false,
     )
+
   end
 end
