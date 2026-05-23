@@ -46,7 +46,7 @@ export type MainStackParamList = {
   MainTabs: undefined;
 
   DriverHome: undefined;
-
+  UpdateProfile: undefined;
   Chat: {
     rideId: string;
   };

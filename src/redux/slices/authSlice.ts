@@ -6,6 +6,7 @@ import {
   sendOtpAsyncThunk,
   verifyOtpAsyncThunk,
   allRiderRidesAsyncThunk,
+  getProfileThunk,
 } from '@/redux/thunk/thunk';
 
 //================================================
@@ -257,6 +258,39 @@ const authSlice = createSlice({
           }
         )?.message || 'Failed to fetch rides';
     });
+
+    builder.addCase(getProfileThunk.pending, state => {
+      state.loading = true;
+
+      state.error = null;
+    });
+
+    builder.addCase(
+      getProfileThunk.fulfilled,
+
+      (state, action: PayloadAction<any>) => {
+        state.loading = false;
+
+        state.user = action.payload?.data;
+
+        console.log(state.user, '======= PROFILE DATA =======');
+      },
+    );
+
+    builder.addCase(
+      getProfileThunk.rejected,
+
+      (state, action) => {
+        state.loading = false;
+
+        state.error =
+          (
+            action.payload as {
+              message?: string;
+            }
+          )?.message || 'Failed to fetch profile';
+      },
+    );
   },
 });
 

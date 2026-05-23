@@ -8,20 +8,22 @@ import {
   cancelRideService,
   getChatMessagesService,
   getDriverStatusService,
+  getProfileService,
   loginService,
   requestRideService,
   sendOtpService,
   signUpService,
   updateBackgroundLocationService,
   updateDriverLocationService,
+  updateProfileService,
   verifyOtpService,
 } from '../services/services';
 import { ErrorResponse, loginPayload, SignUpPayload } from '../types';
 import { secureStorage } from '@/utils/secureStorage';
-
 export const signUpAsyncThunk = createAsyncThunk(
   ASYNC_ROUTES.SIGN_UP,
-  async (payload: SignUpPayload, { rejectWithValue }) => {
+
+  async (payload: FormData, { rejectWithValue }) => {
     try {
       console.log(payload, '======= SIGNUP PAYLOAD =======');
 
@@ -343,6 +345,50 @@ export const updateBackgroundLocationAsyncThunk = createAsyncThunk(
     } catch (error: any) {
       return rejectWithValue(
         error?.response?.data?.message || 'Background location update failed',
+      );
+    }
+  },
+);
+
+export const getProfileThunk = createAsyncThunk(
+  ASYNC_ROUTES.GET_PROFILE,
+
+  async (_, { rejectWithValue }) => {
+    try {
+      const response = await getProfileService();
+
+      console.log(response.data, '======= GET PROFILE RESPONSE =======');
+
+      return response.data;
+    } catch (error) {
+      const err = error as AxiosError<ErrorResponse>;
+
+      console.log(err?.response?.data, '======= GET PROFILE ERROR =======');
+
+      return rejectWithValue(
+        err?.response?.data || {
+          message: 'Something went wrong',
+        },
+      );
+    }
+  },
+);
+
+export const updateProfileThunk = createAsyncThunk(
+  ASYNC_ROUTES.UPDATE_PROFILE,
+
+  async (payload: FormData, { rejectWithValue }) => {
+    try {
+      const response = await updateProfileService(payload);
+
+      return response.data;
+    } catch (error) {
+      const err = error as AxiosError<ErrorResponse>;
+
+      return rejectWithValue(
+        err.response?.data || {
+          message: 'Something went wrong',
+        },
       );
     }
   },

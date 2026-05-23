@@ -10,16 +10,15 @@ import { secureStorage } from '@/utils/secureStorage';
 // SIGNUP
 //================================================
 
-export const signUpService = async (
-  data: SignUpPayload,
-): Promise<AxiosResponse> => {
+export const signUpService = async (data: FormData): Promise<AxiosResponse> => {
   try {
     const response = await axiosInterceptor({
       url: SERVICE_ROUTES.SIGN_UP,
-
       method: METHODS.POST,
-
       data,
+      headers: {
+        'Content-Type': 'multipart/form-data',
+      },
     });
 
     console.log(response.data, '======= SIGNUP RESPONSE =======');
@@ -31,7 +30,6 @@ export const signUpService = async (
     throw error;
   }
 };
-
 //================================================
 // LOGIN
 //================================================
@@ -488,6 +486,45 @@ export const updateBackgroundLocationService = async (data: {
       error?.response?.data,
       '======= BACKGROUND LOCATION ERROR =======',
     );
+
+    throw error;
+  }
+};
+export const getProfileService = async (): Promise<AxiosResponse> => {
+  try {
+    const response = await axiosInterceptor({
+      url: SERVICE_ROUTES.GET_PROFILE,
+
+      method: METHODS.GET,
+    });
+
+    return response;
+  } catch (error: any) {
+    throw error;
+  }
+};
+
+export const updateProfileService = async (
+  data: FormData,
+): Promise<AxiosResponse> => {
+  try {
+    const response = await axiosInterceptor({
+      url: SERVICE_ROUTES.UPDATE_PROFILE,
+
+      method: METHODS.PUT,
+
+      data,
+
+      headers: {
+        'Content-Type': 'multipart/form-data',
+      },
+    });
+
+    console.log(response.data, '======= UPDATE PROFILE RESPONSE =======');
+
+    return response;
+  } catch (error: any) {
+    console.log(error?.response?.data, '======= UPDATE PROFILE ERROR =======');
 
     throw error;
   }

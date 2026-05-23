@@ -1,6 +1,10 @@
+//================================================
+// APP.tsx
+//================================================
+
 import React, { useEffect, useState } from 'react';
 
-import { ActivityIndicator, View } from 'react-native';
+import { ActivityIndicator, Platform, View } from 'react-native';
 
 import { Provider, useDispatch } from 'react-redux';
 
@@ -14,6 +18,11 @@ import { setAuthenticated } from '@/redux/slices/authSlice';
 
 import { secureStorage } from '@/utils/secureStorage';
 
+import {
+  requestAllAndroidPermissions,
+  requestLocationPermission,
+} from '@/utils/permissions';
+
 //================================================
 // APP CONTENT
 //================================================
@@ -23,14 +32,44 @@ const AppContent = () => {
 
   const [loading, setLoading] = useState(true);
 
-  //================ CHECK SESSION =================
+  //================================================
+  // INITIALIZE APP
+  //================================================
 
   useEffect(() => {
-    checkLogin();
+    initializeApp();
   }, []);
 
-  const checkLogin = async () => {
+  //================================================
+  // INITIALIZE
+  //================================================
+
+  const initializeApp = async () => {
     try {
+      //==========================================
+      // ANDROID
+      //==========================================
+
+      if (Platform.OS === 'android') {
+        const granted = await requestAllAndroidPermissions();
+
+        console.log(granted, '======= ANDROID PERMISSIONS =======');
+      }
+
+      //==========================================
+      // IOS
+      //==========================================
+
+      if (Platform.OS === 'ios') {
+        const granted = await requestLocationPermission();
+
+        console.log(granted, '======= IOS LOCATION =======');
+      }
+
+      //==========================================
+      // CHECK LOGIN
+      //==========================================
+
       const token = await secureStorage.getItem('AUTH_TOKEN');
 
       console.log(token, '======= STORED TOKEN =======');
@@ -39,20 +78,24 @@ const AppContent = () => {
         dispatch(setAuthenticated(true));
       }
     } catch (error) {
-      console.log(error, '======= SESSION ERROR =======');
+      console.log(error, '======= APP INIT ERROR =======');
     } finally {
       setLoading(false);
     }
   };
 
-  //================ LOADER =================
+  //================================================
+  // LOADER
+  //================================================
 
   if (loading) {
     return (
       <View
         style={{
           flex: 1,
+
           justifyContent: 'center',
+
           alignItems: 'center',
         }}
       >
@@ -60,6 +103,10 @@ const AppContent = () => {
       </View>
     );
   }
+
+  //================================================
+  // ROUTES
+  //================================================
 
   return <Routes />;
 };
@@ -70,7 +117,11 @@ const AppContent = () => {
 
 const App = () => {
   return (
-    <GestureHandlerRootView style={{ flex: 1 }}>
+    <GestureHandlerRootView
+      style={{
+        flex: 1,
+      }}
+    >
       <Provider store={store}>
         <AppContent />
       </Provider>

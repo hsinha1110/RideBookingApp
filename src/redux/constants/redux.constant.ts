@@ -13,6 +13,8 @@ export const ASYNC_ROUTES = {
   DRIVER_STATUS: 'driverStatus',
   UPDATE_DRIVER_LOCATION: 'updateDriverLocation',
   LOCATION_BACKGROUND: 'locationBackground',
+  GET_PROFILE: 'getProfile',
+  UPDATE_PROFILE: 'updateProfile',
 } as const;
 
 //==================== Thunk Status =====================

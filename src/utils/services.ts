@@ -5,6 +5,7 @@ import Geolocation from '@react-native-community/geolocation';
 //================================================
 // GOOGLE MAP KEY
 //================================================
+
 const GOOGLE_MAP_KEY = 'AIzaSyBSrX-LTpLpIuYgJSS6G0pUfQl6Q-B0y7Y';
 
 //================================================
@@ -26,6 +27,7 @@ export const searchAddress = async (text: string) => {
       {
         params: {
           input: text,
+
           key: GOOGLE_MAP_KEY,
         },
       },
@@ -53,6 +55,7 @@ export const getAddressFromPlaceId = async (placeId: string) => {
       {
         params: {
           place_id: placeId,
+
           key: GOOGLE_MAP_KEY,
         },
       },
@@ -83,6 +86,7 @@ export const getAddressFromLatLng = async (
       {
         params: {
           latlng: `${latitude},${longitude}`,
+
           key: GOOGLE_MAP_KEY,
         },
       },
@@ -126,11 +130,11 @@ export const getCurrentLocation = (): Promise<any> => {
       },
 
       {
-        enableHighAccuracy: false,
+        enableHighAccuracy: true,
+
         timeout: 30000,
+
         maximumAge: 10000,
-        forceRequestLocation: true,
-        showLocationDialog: true,
       },
     );
   });
@@ -142,6 +146,7 @@ export const getCurrentLocation = (): Promise<any> => {
 
 export const watchCurrentLocation = (
   onLocationUpdate: (coords: any) => void,
+
   onError?: (error: any) => void,
 ) => {
   const watchId = Geolocation.watchPosition(
@@ -158,12 +163,13 @@ export const watchCurrentLocation = (
     },
 
     {
-      enableHighAccuracy: false,
-      distanceFilter: 0,
+      enableHighAccuracy: true,
+
+      distanceFilter: 10,
+
       interval: 5000,
+
       fastestInterval: 2000,
-      forceRequestLocation: true,
-      showLocationDialog: true,
     },
   );
 
@@ -194,7 +200,9 @@ export const getDirections = async (
       {
         params: {
           origin: `${originLat},${originLng}`,
+
           destination: `${destLat},${destLng}`,
+
           key: GOOGLE_MAP_KEY,
         },
       },

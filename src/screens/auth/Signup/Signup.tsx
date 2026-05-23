@@ -1,6 +1,6 @@
 import React, { FC, useState } from 'react';
 
-import { View, Alert } from 'react-native';
+import { View, Alert, TouchableOpacity, Image, ScrollView } from 'react-native';
 
 import { useDispatch } from 'react-redux';
 
@@ -9,19 +9,25 @@ import TextComp from '@/components/TextComp';
 import TextInputComp from '@/components/TextInputComp';
 import ButtonComp from '@/components/ButtonComp';
 import RoleTabs from '@/components/RolesTab';
+import ImagePickerBottomSheet from '@/components/ImagePickerBottomSheet';
 
 import useStyles from '@/screens/auth/Signup/styles';
-
+import { useNavigation } from '@react-navigation/native';
 import { signUpAsyncThunk } from '@/redux/thunk/thunk';
-
 import { AppDispatch } from '@/redux/store';
+import { NativeStackNavigationProp } from '@react-navigation/native-stack';
+import { AuthStackParamList } from '@/screens/types';
+
+const DEFAULT_IMAGE = 'https://cdn-icons-png.flaticon.com/512/149/149071.png';
 
 const Signup: FC = () => {
   const styles = useStyles();
 
   const dispatch = useDispatch<AppDispatch>();
 
-  //================ STATES =================
+  //====================================================
+  // STATES
+  //====================================================
 
   const [fullName, setFullName] = useState('');
 
@@ -33,16 +39,18 @@ const Signup: FC = () => {
 
   const [userType, setUserType] = useState<'rider' | 'driver'>('rider');
 
-  const [carName, setCarName] = useState('');
+  const [profileImage, setProfileImage] = useState<any>(null);
 
-  const [carNumber, setCarNumber] = useState('');
-
-  const [carModel, setCarModel] = useState('');
+  const [modalVisible, setModalVisible] = useState(false);
 
   const [loading, setLoading] = useState(false);
 
-  //================ SIGNUP =================
+  //====================================================
+  // SIGNUP
+  //====================================================
 
+  const navigation =
+    useNavigation<NativeStackNavigationProp<AuthStackParamList>>();
   const handleSignup = async () => {
     if (!fullName || !email || !phoneNumber || !password) {
       Alert.alert('Error', 'Please fill all fields');
@@ -53,20 +61,39 @@ const Signup: FC = () => {
     try {
       setLoading(true);
 
-      const payload = {
-        fullName,
-        email,
-        phoneNumber,
-        password,
-        userType,
-        carName,
-        carNumber,
-        carModel,
-      };
+      //==========================================
+      // FORM DATA
+      //==========================================
 
-      console.log(payload, '======= SIGNUP PAYLOAD =======');
+      const formData = new FormData();
 
-      const response = await dispatch(signUpAsyncThunk(payload)).unwrap();
+      formData.append('fullName', fullName);
+
+      formData.append('email', email);
+
+      formData.append('phoneNumber', phoneNumber);
+
+      formData.append('password', password);
+
+      formData.append('userType', userType);
+
+      //==========================================
+      // IMAGE
+      //==========================================
+
+      if (profileImage) {
+        formData.append('profileImage', {
+          uri: profileImage.path,
+
+          type: profileImage.mime,
+
+          name: `profile_${Date.now()}.jpg`,
+        } as any);
+      }
+
+      console.log(formData, '======= SIGNUP FORM DATA =======');
+
+      const response = await dispatch(signUpAsyncThunk(formData)).unwrap();
 
       console.log(response, '======= SIGNUP SUCCESS =======');
 
@@ -82,100 +109,121 @@ const Signup: FC = () => {
 
   return (
     <WrapperContainer style={styles.container}>
-      <View style={styles.content}>
-        {/* Header */}
+      <ScrollView showsVerticalScrollIndicator={false}>
+        <View style={styles.content}>
+          {/* HEADER */}
 
-        <View style={styles.titleSection}>
-          <TextComp text="Create Account" style={styles.createText} />
+          <View style={styles.titleSection}>
+            <TextComp text="Create Account" style={styles.createText} />
 
-          <TextComp text="Signup to continue" style={styles.signupText} />
+            <TextComp text="Signup to continue" style={styles.signupText} />
+          </View>
+
+          {/* PROFILE IMAGE */}
+
+          <TouchableOpacity
+            activeOpacity={0.8}
+            onPress={() => setModalVisible(true)}
+            style={{
+              alignSelf: 'center',
+
+              marginBottom: 20,
+            }}
+          >
+            <Image
+              source={{
+                uri: profileImage?.path || DEFAULT_IMAGE,
+              }}
+              style={{
+                width: 110,
+
+                height: 110,
+
+                borderRadius: 100,
+              }}
+            />
+          </TouchableOpacity>
+
+          {/* ROLE TABS */}
+
+          <RoleTabs selectedRole={userType} onChangeRole={setUserType} />
+
+          {/* FULL NAME */}
+
+          <TextInputComp
+            placeholder="Full Name"
+            value={fullName}
+            onChangeText={setFullName}
+            containerStyle={styles.input}
+          />
+
+          {/* EMAIL */}
+
+          <TextInputComp
+            placeholder="Email Address"
+            keyboardType="email-address"
+            autoCapitalize="none"
+            value={email}
+            onChangeText={setEmail}
+            containerStyle={styles.input}
+          />
+
+          {/* PHONE */}
+
+          <TextInputComp
+            placeholder="Phone Number"
+            keyboardType="phone-pad"
+            value={phoneNumber}
+            onChangeText={setPhoneNumber}
+            containerStyle={styles.input}
+          />
+
+          {/* PASSWORD */}
+
+          <TextInputComp
+            placeholder="Password"
+            secureTextEntry
+            value={password}
+            onChangeText={setPassword}
+            containerStyle={styles.input}
+          />
+
+          {/* BUTTON */}
+
+          <ButtonComp
+            title={
+              loading
+                ? 'Please wait...'
+                : userType === 'rider'
+                ? 'Signup as Rider'
+                : 'Signup as Driver'
+            }
+            onPress={handleSignup}
+            disabled={loading}
+          />
+          <View style={styles.bottomContainer}>
+            <TextComp
+              text="Already have an account?"
+              style={styles.bottomText}
+            />
+
+            <TouchableOpacity
+              activeOpacity={0.8}
+              onPress={() => navigation.goBack()}
+            >
+              <TextComp text=" Login" style={styles.signupText} />
+            </TouchableOpacity>
+          </View>
         </View>
+      </ScrollView>
 
-        {/* Role Tabs */}
+      {/* IMAGE PICKER */}
 
-        <RoleTabs selectedRole={userType} onChangeRole={setUserType} />
-
-        {/* Full Name */}
-
-        <TextInputComp
-          placeholder="Full Name"
-          value={fullName}
-          onChangeText={setFullName}
-          containerStyle={styles.input}
-        />
-
-        {/* Email */}
-
-        <TextInputComp
-          placeholder="Email Address"
-          keyboardType="email-address"
-          autoCapitalize="none"
-          value={email}
-          onChangeText={setEmail}
-          containerStyle={styles.input}
-        />
-
-        {/* Phone */}
-
-        <TextInputComp
-          placeholder="Phone Number"
-          keyboardType="phone-pad"
-          value={phoneNumber}
-          onChangeText={setPhoneNumber}
-          containerStyle={styles.input}
-        />
-
-        {/* Password */}
-
-        <TextInputComp
-          placeholder="Password"
-          secureTextEntry
-          value={password}
-          onChangeText={setPassword}
-          containerStyle={styles.input}
-        />
-
-        {/* Car Name */}
-
-        {userType === 'driver' && (
-          <>
-            <TextInputComp
-              placeholder="Car Name"
-              value={carName}
-              onChangeText={setCarName}
-              containerStyle={styles.input}
-            />
-
-            <TextInputComp
-              placeholder="Car Number"
-              value={carNumber}
-              onChangeText={setCarNumber}
-              containerStyle={styles.input}
-            />
-
-            <TextInputComp
-              placeholder="Car Model"
-              value={carModel}
-              onChangeText={setCarModel}
-              containerStyle={styles.input}
-            />
-          </>
-        )}
-
-        {/* Button */}
-
-        <ButtonComp
-          title={
-            loading
-              ? 'Please wait...'
-              : userType === 'rider'
-              ? 'Signup as Rider'
-              : 'Signup as Driver'
-          }
-          onPress={handleSignup}
-          disabled={loading}
-        />
-      </View>
+      <ImagePickerBottomSheet
+        visible={modalVisible}
+        onClose={() => setModalVisible(false)}
+        onImageSelect={setProfileImage}
+      />
     </WrapperContainer>
   );
 };

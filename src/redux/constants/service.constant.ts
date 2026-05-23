@@ -21,6 +21,8 @@ export const SERVICE_ROUTES = {
   DRIVER_STATUS: getApiUrl('/api/driver/status/:driverId'),
   UPDATE_DRIVER_LOCATION: getApiUrl('/api/driver/location'),
   LOCATION_BACKGROUND: getApiUrl('/api/driver/location-background'),
+  GET_PROFILE: getApiUrl('/api/user/profile'),
+  UPDATE_PROFILE: getApiUrl('/api/user/profile'),
 } as const;
 
 //=================== METHODS ==============================

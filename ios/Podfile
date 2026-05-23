@@ -1,32 +1,95 @@
-# Resolve react_native_pods.rb with node to allow for hoisting
-require Pod::Executable.execute_command('node', ['-p',
-  'require.resolve(
-    "react-native/scripts/react_native_pods.rb",
-    {paths: [process.argv[1]]},
-  )', __dir__]).strip
+#================================================
+# REACT NATIVE PODS
+#================================================
+
+require Pod::Executable.execute_command(
+  'node',
+  [
+    '-p',
+    'require.resolve(
+      "react-native/scripts/react_native_pods.rb",
+      {paths: [process.argv[1]]},
+    )',
+    __dir__,
+  ],
+).strip
+
+#================================================
+# REACT NATIVE PERMISSIONS
+#================================================
+
+require_relative '../node_modules/react-native-permissions/scripts/setup'
+
+#================================================
+# PLATFORM
+#================================================
 
 platform :ios, min_ios_version_supported
 
 prepare_react_native_project!
 
-target 'RideBookingApp' do
-  rn_maps_path = '../node_modules/react-native-maps'
+#================================================
+# SETUP PERMISSIONS
+#================================================
 
-  pod 'react-native-maps/Google', :path => rn_maps_path
+setup_permissions([
+  'LocationWhenInUse',
+  'LocationAlways',
+  'Camera',
+  'PhotoLibrary',
+  'PhotoLibraryAddOnly',
+])
+
+#================================================
+# TARGET
+#================================================
+
+target 'RideBookingApp' do
+
+  #==============================================
+  # REACT NATIVE MAPS
+  #==============================================
+
+  rn_maps_path =
+    '../node_modules/react-native-maps'
+
+  pod 'react-native-maps/Google',
+    :path => rn_maps_path
+
+  #==============================================
+  # NATIVE MODULES
+  #==============================================
 
   config = use_native_modules!
 
+  #==============================================
+  # FRAMEWORKS
+  #==============================================
+
   use_frameworks! :linkage => :static
+
+  #==============================================
+  # REACT NATIVE
+  #==============================================
 
   use_react_native!(
     :path => config[:reactNativePath],
-    :app_path => "#{Pod::Config.instance.installation_root}/.."
+
+    :app_path =>
+      "#{Pod::Config.instance.installation_root}/..",
   )
 
+  #==============================================
+  # POST INSTALL
+  #==============================================
+
   post_install do |installer|
+
     react_native_post_install(
       installer,
+
       config[:reactNativePath],
+
       :mac_catalyst_enabled => false,
     )
   end
