@@ -21,7 +21,10 @@ import { secureStorage } from '@/utils/secureStorage';
 import {
   requestAllAndroidPermissions,
   requestLocationPermission,
+  requestNotificationPermission,
 } from '@/utils/permissions';
+
+import { initializeNotifications, getFcmToken } from '@/utils/notification';
 
 //================================================
 // APP CONTENT
@@ -51,9 +54,26 @@ const AppContent = () => {
       //==========================================
 
       if (Platform.OS === 'android') {
+        //======================================
+        // CAMERA + LOCATION + GALLERY
+        //======================================
+
         const granted = await requestAllAndroidPermissions();
 
         console.log(granted, '======= ANDROID PERMISSIONS =======');
+
+        //======================================
+        // NOTIFICATION PERMISSION
+        //======================================
+
+        if (Platform.Version >= 33) {
+          const notificationGranted = await requestNotificationPermission();
+
+          console.log(
+            notificationGranted,
+            '======= NOTIFICATION PERMISSION =======',
+          );
+        }
       }
 
       //==========================================
@@ -61,9 +81,45 @@ const AppContent = () => {
       //==========================================
 
       if (Platform.OS === 'ios') {
-        const granted = await requestLocationPermission();
+        //======================================
+        // LOCATION
+        //======================================
 
-        console.log(granted, '======= IOS LOCATION =======');
+        const locationGranted = await requestLocationPermission();
+
+        console.log(locationGranted, '======= IOS LOCATION =======');
+
+        //======================================
+        // NOTIFICATION
+        //======================================
+
+        const notificationGranted = await requestNotificationPermission();
+
+        console.log(notificationGranted, '======= IOS NOTIFICATION =======');
+      }
+
+      //==========================================
+      // INITIALIZE FIREBASE
+      //==========================================
+
+      await initializeNotifications();
+
+      //==========================================
+      // GET FIREBASE TOKEN
+      //==========================================
+
+      const fcmToken = await getFcmToken();
+
+      console.log(fcmToken, '======= FIREBASE FCM TOKEN =======');
+
+      //==========================================
+      // SAVE FCM TOKEN
+      //==========================================
+
+      if (fcmToken) {
+        await secureStorage.setItem('FCM_TOKEN', fcmToken);
+
+        console.log('FCM TOKEN SAVED SUCCESSFULLY');
       }
 
       //==========================================

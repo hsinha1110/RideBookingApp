@@ -1,4 +1,8 @@
-import { Alert, Platform } from 'react-native';
+//================================================
+// permissions.ts
+//================================================
+
+import { Alert, PermissionsAndroid, Platform } from 'react-native';
 
 import {
   check,
@@ -7,6 +11,7 @@ import {
   request,
   requestMultiple,
   RESULTS,
+  Permission,
 } from 'react-native-permissions';
 
 //================================================
@@ -69,22 +74,54 @@ export const requestGalleryPermission = async () => {
 };
 
 //================================================
+// NOTIFICATION PERMISSION
+//================================================
+
+export const requestNotificationPermission = async (): Promise<boolean> => {
+  try {
+    //========================================
+    // ANDROID 13+
+    //========================================
+
+    if (Platform.OS === 'android' && Platform.Version >= 33) {
+      const granted = await PermissionsAndroid.request(
+        PermissionsAndroid.PERMISSIONS.POST_NOTIFICATIONS,
+      );
+
+      console.log(granted, '======= NOTIFICATION RESULT =======');
+
+      return granted === PermissionsAndroid.RESULTS.GRANTED;
+    }
+
+    //========================================
+    // BELOW ANDROID 13
+    //========================================
+
+    return true;
+  } catch (error) {
+    console.log(error, '======= NOTIFICATION ERROR =======');
+
+    return false;
+  }
+};
+
+//================================================
 // ANDROID MULTIPLE PERMISSIONS
 //================================================
 
 export const requestAllAndroidPermissions = async () => {
   try {
-    //==========================================
+    //======================================
     // IOS
-    //==========================================
+    //======================================
 
     if (Platform.OS === 'ios') {
       return true;
     }
 
-    //==========================================
+    //======================================
     // ANDROID PERMISSIONS
-    //==========================================
+    //======================================
 
     const permissions =
       Platform.Version >= 33
@@ -103,17 +140,44 @@ export const requestAllAndroidPermissions = async () => {
             PERMISSIONS.ANDROID.READ_EXTERNAL_STORAGE,
           ];
 
-    //==========================================
+    //======================================
     // REQUEST MULTIPLE
-    //==========================================
+    //======================================
 
     const results = await requestMultiple(permissions);
 
     console.log(results, '======= MULTIPLE PERMISSIONS =======');
 
     const allGranted = Object.values(results).every(
-      result => result === RESULTS.GRANTED,
+      result => result === RESULTS.GRANTED || result === RESULTS.LIMITED,
     );
+
+    //======================================
+    // BLOCKED CHECK
+    //======================================
+
+    const hasBlocked = Object.values(results).some(
+      result => result === RESULTS.BLOCKED,
+    );
+
+    if (hasBlocked) {
+      Alert.alert(
+        'Permissions Blocked',
+        'Please enable permissions from settings',
+        [
+          {
+            text: 'Cancel',
+            style: 'cancel',
+          },
+          {
+            text: 'Open Settings',
+            onPress: async () => {
+              await openSettings();
+            },
+          },
+        ],
+      );
+    }
 
     if (!allGranted) {
       Alert.alert(
@@ -134,32 +198,36 @@ export const requestAllAndroidPermissions = async () => {
 // HANDLE SINGLE PERMISSION
 //================================================
 
-const handleSinglePermission = async (permission: any, type: string) => {
+const handleSinglePermission = async (permission: Permission, type: string) => {
   const result = await check(permission);
 
-  //==========================================
+  console.log(result, `======= ${type} STATUS =======`);
+
+  //======================================
   // GRANTED
-  //==========================================
+  //======================================
 
   if (result === RESULTS.GRANTED || result === RESULTS.LIMITED) {
     return true;
   }
 
-  //==========================================
+  //======================================
   // DENIED
-  //==========================================
+  //======================================
 
   if (result === RESULTS.DENIED) {
     const requestResult = await request(permission);
+
+    console.log(requestResult, `======= ${type} REQUEST RESULT =======`);
 
     return (
       requestResult === RESULTS.GRANTED || requestResult === RESULTS.LIMITED
     );
   }
 
-  //==========================================
+  //======================================
   // BLOCKED
-  //==========================================
+  //======================================
 
   if (result === RESULTS.BLOCKED) {
     showPermissionAlert(type);
