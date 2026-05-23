@@ -22,11 +22,11 @@ import ButtonComp from '@/components/ButtonComp';
 const SearchScreen: FC = () => {
   const navigation = useNavigation<any>();
   const route = useRoute<any>();
-  const { location } = route.params;
+  const { location, pickupAddress } = route.params;
   const [search, setSearch] = useState('');
   const [locations, setLocations] = useState<any[]>([]);
   const [selectedLocation, setSelectedLocation] = useState<any>(null);
-
+  const [pickup, setPickup] = useState(pickupAddress || '');
   const handleSearch = async (text: string) => {
     setSearch(text);
     if (text.trim().length < 2) {
@@ -63,14 +63,12 @@ const SearchScreen: FC = () => {
         <Icon name="location-outline" size={20} color="#000" />
 
         <TextInput
-          value={location}
-          onChangeText={handleSearch}
-          placeholder="Search destination"
+          value={pickup}
+          onChangeText={setPickup}
+          placeholder="Pickup Location"
           placeholderTextColor="#999"
           style={styles.input}
-          editable={false}
         />
-
         {search?.length > 0 && (
           <TouchableOpacity
             onPress={() => {
@@ -160,19 +158,17 @@ const SearchScreen: FC = () => {
               const coords = details?.geometry?.location;
               if (!coords) return;
               navigation.navigate('RideConfirmation', {
-                // PICKUP
+                pickupLocation: pickupAddress,
 
-                pickupLocation: location,
-
-                // DESTINATION
+                pickupCoords: {
+                  latitude: location.latitude,
+                  longitude: location.longitude,
+                },
 
                 destination: selectedLocation.description,
 
-                // DESTINATION COORDS
-
                 destinationCoords: {
                   latitude: coords.lat,
-
                   longitude: coords.lng,
                 },
               });

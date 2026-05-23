@@ -6,6 +6,7 @@ import {
   sendOtpAsyncThunk,
   verifyOtpAsyncThunk,
   allRiderRidesAsyncThunk,
+  getProfileThunk,
 } from '@/redux/thunk/thunk';
 
 //================================================
@@ -26,6 +27,7 @@ export interface AuthState {
   userType: 'rider' | 'driver' | null;
 
   riderRides: any[];
+  riderId: string | null;
 }
 
 //================================================
@@ -46,6 +48,8 @@ const initialState: AuthState = {
   userType: null,
 
   riderRides: [],
+
+  riderId: null,
 };
 //================================================
 // SLICE
@@ -72,7 +76,9 @@ const authSlice = createSlice({
     setUserType: (state, action: PayloadAction<'rider' | 'driver'>) => {
       state.userType = action.payload;
     },
-
+    setRiderId: (state, action: PayloadAction<string | null>) => {
+      state.riderId = action.payload;
+    },
     //============================================
     // LOGOUT
     //============================================
@@ -201,20 +207,29 @@ const authSlice = createSlice({
 
       state.error = null;
     });
-
     builder.addCase(
       verifyOtpAsyncThunk.fulfilled,
       (state, action: PayloadAction<any>) => {
+        const userData = action.payload?.data;
+
+        console.log(userData, '======= USER DATA =======');
+
         state.loading = false;
 
-        state.user = action.payload?.user;
+        state.user = userData;
 
-        state.token = action.payload?.token;
+        state.token = userData?.token;
 
-        state.userType =
-          action.payload?.userType || action.payload?.user?.userType || null;
+        state.userType = userData?.userType;
 
         state.isAuthenticated = true;
+
+        // THIS IS THE ID
+        state.riderId = userData?._id;
+
+        console.log(state.riderId, '======= SAVED RIDER ID =======');
+
+        state.error = null;
       },
     );
     builder.addCase(allRiderRidesAsyncThunk.pending, state => {
@@ -236,7 +251,6 @@ const authSlice = createSlice({
 
     builder.addCase(allRiderRidesAsyncThunk.rejected, (state, action) => {
       state.loading = false;
-
       state.error =
         (
           action.payload as {
@@ -244,16 +258,39 @@ const authSlice = createSlice({
           }
         )?.message || 'Failed to fetch rides';
     });
-    builder.addCase(verifyOtpAsyncThunk.rejected, (state, action) => {
-      state.loading = false;
 
-      state.error =
-        (
-          action.payload as {
-            message?: string;
-          }
-        )?.message || 'OTP verification failed';
+    builder.addCase(getProfileThunk.pending, state => {
+      state.loading = true;
+
+      state.error = null;
     });
+
+    builder.addCase(
+      getProfileThunk.fulfilled,
+
+      (state, action: PayloadAction<any>) => {
+        state.loading = false;
+
+        state.user = action.payload?.data;
+
+        console.log(state.user, '======= PROFILE DATA =======');
+      },
+    );
+
+    builder.addCase(
+      getProfileThunk.rejected,
+
+      (state, action) => {
+        state.loading = false;
+
+        state.error =
+          (
+            action.payload as {
+              message?: string;
+            }
+          )?.message || 'Failed to fetch profile';
+      },
+    );
   },
 });
 
@@ -261,6 +298,7 @@ const authSlice = createSlice({
 // EXPORTS
 //================================================
 
-export const { logout, setAuthenticated, setUserType } = authSlice.actions;
+export const { logout, setAuthenticated, setUserType, setRiderId } =
+  authSlice.actions;
 
 export default authSlice.reducer;

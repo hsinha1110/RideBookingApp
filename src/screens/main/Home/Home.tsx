@@ -1,196 +1,324 @@
-import React, { FC, useEffect, useRef, useState } from 'react';
+import React, {
+  FC,
+  useEffect,
+  useRef,
+  useState,
+} from 'react';
 
 import {
-  FlatList,
+  ActivityIndicator,
+  Platform,
   Pressable,
   StyleSheet,
   Text,
   TextInput,
-  TouchableOpacity,
   View,
 } from 'react-native';
 
-import MapView, { Marker, PROVIDER_GOOGLE, Region } from 'react-native-maps';
+import MapView, {
+  Marker,
+  PROVIDER_GOOGLE,
+  Region,
+} from 'react-native-maps';
 
 import Icon from 'react-native-vector-icons/Ionicons';
-import { useNavigation } from '@react-navigation/native';
+
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { NavigationProp, PlaceItem } from '@/screens/types';
+
+import { useNavigation } from '@react-navigation/native';
+
+import { NavigationProp } from '@/components/types';
 
 import {
-  getCurrentLocation,
   getAddressFromLatLng,
-  searchAddress,
-  getAddressFromPlaceId,
+  getCurrentLocation,
 } from '@/utils/services';
 
+//================================================
+// SCREEN
+//================================================
+
 const Home: FC = () => {
-  const [currentLocation, setCurrentLocation] = useState('');
 
-  const [region, setRegion] = useState({
-    latitude: 22.7196,
-    longitude: 75.8577,
-    latitudeDelta: 0.01,
-    longitudeDelta: 0.01,
-  });
+  //================================================
+  // REFS
+  //================================================
 
-  const [destination, setDestination] = useState('');
+  const mapRef =
+    useRef<MapView>(null);
 
-  const [places, setPlaces] = useState<PlaceItem[]>([]);
-  const mapRef = useRef<MapView>(null);
-  const navigation = useNavigation<NavigationProp>();
+  //================================================
+  // NAVIGATION
+  //================================================
+
+  const navigation =
+    useNavigation<NavigationProp>();
+
+  //================================================
+  // STATES
+  //================================================
+
+  const [loading, setLoading] =
+    useState(true);
+
+  const [pickupAddress,
+    setPickupAddress] =
+    useState('');
+
+  const [destination,
+    setDestination] =
+    useState('');
+
+  const [region, setRegion] =
+    useState<Region | null>(
+      null,
+    );
+
+  //================================================
+  // INITIAL LOCATION
+  //================================================
 
   useEffect(() => {
-    getUserCurrentLocation();
+    getInitialLocation();
   }, []);
 
-  const getUserCurrentLocation = async () => {
-    try {
-      const coords = await getCurrentLocation();
-      console.log('COORDS =>', coords);
-      const latitude = coords.latitude;
-      const longitude = coords.longitude;
-      setRegion({
-        latitude,
-        longitude,
-        latitudeDelta: 0.01,
-        longitudeDelta: 0.01,
-      });
+  //================================================
+  // GET INITIAL LOCATION
+  //================================================
 
-      const response = await getAddressFromLatLng(latitude, longitude);
-      console.log('ADDRESS RESPONSE =>', response);
-      const fullAddress = response?.formatted_address;
-      if (fullAddress) {
-        setCurrentLocation(fullAddress);
-      } else {
-        setCurrentLocation(`${latitude}, ${longitude}`);
+  const getInitialLocation =
+    async () => {
+
+      try {
+
+        setLoading(true);
+
+        //============================================
+        // CURRENT LOCATION
+        //============================================
+
+        const coords =
+          await getCurrentLocation();
+
+        const newRegion: Region =
+          {
+            latitude:
+              coords.latitude,
+
+            longitude:
+              coords.longitude,
+
+            latitudeDelta:
+              0.01,
+
+            longitudeDelta:
+              0.01,
+          };
+
+        //============================================
+        // SET REGION
+        //============================================
+
+        setRegion(newRegion);
+
+        //============================================
+        // ANIMATE MAP
+        //============================================
+
+        setTimeout(() => {
+
+          mapRef.current?.animateToRegion(
+            newRegion,
+            1000,
+          );
+
+        }, 500);
+
+        //============================================
+        // GET ADDRESS
+        //============================================
+
+        const response =
+          await getAddressFromLatLng(
+            coords.latitude,
+            coords.longitude,
+          );
+
+        if (
+          response?.formatted_address
+        ) {
+
+          setPickupAddress(
+            response.formatted_address,
+          );
+        }
+
+      } catch (error) {
+
+        console.log(
+          error,
+          '======= INITIAL LOCATION ERROR =======',
+        );
+
+      } finally {
+
+        setLoading(false);
       }
-    } catch (error) {
-      console.log('LOCATION ERROR =>', error);
-    }
-  };
+    };
 
-  const handleSelectPlace = async (item: PlaceItem) => {
-    try {
-      const details = await getAddressFromPlaceId(item.place_id);
+  //================================================
+  // LOADER
+  //================================================
 
-      const location = details?.geometry?.location;
+  if (loading || !region) {
 
-      if (!location) {
-        return;
-      }
+    return (
+      <View
+        style={
+          styles.loaderContainer
+        }>
 
-      const newRegion: Region = {
-        latitude: location.lat,
-        longitude: location.lng,
-        latitudeDelta: 0.02,
-        longitudeDelta: 0.02,
-      };
+        <ActivityIndicator
+          size="large"
+          color="black"
+        />
+      </View>
+    );
+  }
 
-      setRegion(newRegion);
-
-      mapRef.current?.animateToRegion(newRegion, 1000);
-
-      setDestination(item.description);
-
-      setPlaces([]);
-    } catch (error) {
-      console.log('PLACE SELECT ERROR:', error);
-    }
-  };
+  //================================================
+  // UI
+  //================================================
 
   return (
-    <SafeAreaView style={styles.container}>
+    <SafeAreaView
+      style={styles.container}>
+
+      {/* MAP */}
+
       <MapView
-        provider={PROVIDER_GOOGLE}
+        ref={mapRef}
+        provider={
+          Platform.OS ===
+          'android'
+            ? PROVIDER_GOOGLE
+            : undefined
+        }
         style={styles.map}
-        region={region}
-        showsUserLocation
-        showsMyLocationButton
-      >
+        initialRegion={region}
+        showsMyLocationButton={
+          true
+        }>
+
+        {/* MARKER */}
+
         <Marker
           coordinate={{
-            latitude: region.latitude,
-            longitude: region.longitude,
+            latitude:
+              region.latitude,
+
+            longitude:
+              region.longitude,
           }}
           title="Current Location"
-          description={currentLocation}
+          description={
+            pickupAddress
+          }
         />
       </MapView>
 
-      {/* SEARCH LIST */}
+      {/*================================================
+        BOTTOM CARD
+      =================================================*/}
 
-      {places.length > 0 && (
-        <View style={styles.searchContainer}>
-          <FlatList
-            data={places}
-            keyExtractor={item => item.place_id}
-            keyboardShouldPersistTaps="handled"
-            renderItem={({ item }) => (
-              <TouchableOpacity
-                style={styles.placeItem}
-                activeOpacity={0.8}
-                onPress={() => handleSelectPlace(item)}
-              >
-                <Icon name="location" size={18} color="#000" />
+      <View
+        style={
+          styles.bottomCard
+        }>
 
-                <Text style={styles.placeText}>{item.description}</Text>
-              </TouchableOpacity>
-            )}
-          />
-        </View>
-      )}
-
-      {/* BOTTOM CARD */}
-
-      <View style={styles.bottomCard}>
         {/* DRAG LINE */}
 
-        <View style={styles.dragLine} />
+        <View
+          style={
+            styles.dragLine
+          }
+        />
 
         {/* TITLE */}
 
-        <Text style={styles.title}>Find a Ride</Text>
+        <Text
+          style={
+            styles.title
+          }>
+          Find a Ride
+        </Text>
 
-        {/* CURRENT LOCATION INPUT */}
+        {/* PICKUP */}
 
-        <View style={styles.inputContainer}>
-          <Icon name="location-outline" size={20} color="#000" />
+        <View
+          style={
+            styles.inputContainer
+          }>
+
+          <Icon
+            name="location-outline"
+            size={20}
+            color="#000"
+          />
 
           <TextInput
-            value={currentLocation}
+            value={
+              pickupAddress
+            }
             editable={false}
-            placeholder="Current Location"
+            placeholder="Pickup Location"
             placeholderTextColor="#666"
-            style={styles.input}
+            style={
+              styles.input
+            }
           />
         </View>
 
-        {/* DESTINATION INPUT */}
+        {/* DESTINATION */}
 
         <Pressable
-          onPress={() =>
-            navigation.navigate('SearchScreen', {
-              location: currentLocation,
-            })
+          style={
+            styles.inputContainer
           }
-          style={styles.inputContainer}
-        >
-          <Icon name="navigate" size={22} color="#777" />
-          <View
+          onPress={() => {
+
+            navigation.navigate(
+              'SearchScreen',
+              {
+                location: {
+                  latitude:
+                    region.latitude,
+
+                  longitude:
+                    region.longitude,
+                },
+
+                pickupAddress,
+              },
+            );
+          }}>
+
+          <Icon
+            name="navigate"
+            size={20}
+            color="#000"
+          />
+
+          <TextInput
+            value={destination}
+            editable={false}
             pointerEvents="none"
-            style={{
-              flex: 1,
-            }}
-          >
-            <TextInput
-              value={destination}
-              editable={false}
-              placeholder="Enter Destination"
-              placeholderTextColor="#666"
-              style={styles.input}
-            />
-          </View>
+            placeholder="Enter Destination"
+            placeholderTextColor="#666"
+            style={
+              styles.input
+            }
+          />
         </Pressable>
       </View>
     </SafeAreaView>
@@ -203,135 +331,100 @@ export default Home;
 // STYLES
 //================================================
 
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-  },
-
-  map: {
-    flex: 1,
-  },
-
-  //================================================
-  // SEARCH RESULTS
-  //================================================
-
-  searchContainer: {
-    position: 'absolute',
-
-    bottom: 220,
-
-    width: '100%',
-
-    paddingHorizontal: 20,
-  },
-
-  placeItem: {
-    flexDirection: 'row',
-
-    alignItems: 'center',
-
-    backgroundColor: '#fff',
-
-    padding: 14,
-
-    borderBottomWidth: 1,
-
-    borderBottomColor: '#eee',
-  },
-
-  placeText: {
-    flex: 1,
-
-    marginLeft: 10,
-
-    color: '#000',
-  },
-
-  //================================================
-  // BOTTOM CARD
-  //================================================
-
-  bottomCard: {
-    position: 'absolute',
-
-    bottom: 0,
-
-    width: '100%',
-
-    backgroundColor: '#fff',
-
-    borderTopLeftRadius: 28,
-
-    borderTopRightRadius: 28,
-
-    paddingHorizontal: 20,
-
-    paddingTop: 16,
-
-    paddingBottom: 30,
-
-    shadowColor: '#000',
-
-    shadowOffset: {
-      width: 0,
-      height: -3,
+const styles =
+  StyleSheet.create({
+    container: {
+      flex: 1,
     },
 
-    shadowOpacity: 0.1,
+    map: {
+      flex: 1,
+    },
 
-    shadowRadius: 10,
+    loaderContainer: {
+      flex: 1,
 
-    elevation: 10,
-  },
+      justifyContent:
+        'center',
 
-  dragLine: {
-    width: 50,
+      alignItems:
+        'center',
+    },
 
-    height: 5,
+    bottomCard: {
+      position:
+        'absolute',
 
-    borderRadius: 10,
+      bottom: 0,
 
-    backgroundColor: '#D9D9D9',
+      width: '100%',
 
-    alignSelf: 'center',
+      backgroundColor:
+        '#fff',
 
-    marginBottom: 18,
-  },
+      borderTopLeftRadius: 28,
 
-  title: {
-    fontSize: 28,
+      borderTopRightRadius: 28,
 
-    fontWeight: '700',
+      paddingHorizontal: 20,
 
-    color: '#000',
+      paddingTop: 16,
 
-    marginBottom: 20,
-  },
+      paddingBottom: 30,
 
-  inputContainer: {
-    height: 56,
-    flex: 1,
-    backgroundColor: '#F5F5F5',
+      elevation: 10,
+    },
 
-    borderRadius: 14,
+    dragLine: {
+      width: 50,
 
-    flexDirection: 'row',
+      height: 5,
 
-    alignItems: 'center',
+      borderRadius: 10,
 
-    paddingHorizontal: 16,
+      backgroundColor:
+        '#D9D9D9',
 
-    marginBottom: 16,
-  },
+      alignSelf:
+        'center',
 
-  input: {
-    flex: 1,
+      marginBottom: 18,
+    },
 
-    marginLeft: 12,
+    title: {
+      fontSize: 28,
 
-    color: '#000',
+      fontWeight: '700',
 
-    fontSize: 15,
-  },
-});
+      color: '#000',
+
+      marginBottom: 20,
+    },
+
+    inputContainer: {
+      height: 56,
+
+      backgroundColor:
+        '#F5F5F5',
+
+      borderRadius: 14,
+
+      flexDirection: 'row',
+
+      alignItems: 'center',
+
+      paddingHorizontal: 16,
+
+      marginBottom: 16,
+    },
+
+    input: {
+      flex: 1,
+
+      marginLeft: 12,
+
+      color: '#000',
+
+      fontSize: 15,
+    },
+  });

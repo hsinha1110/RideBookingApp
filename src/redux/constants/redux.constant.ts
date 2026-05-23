@@ -10,6 +10,11 @@ export const ASYNC_ROUTES = {
   ACCEPT_REJECT: 'acceptReject',
   CANCEL_RIDE: 'cancelRide',
   GET_MESSAGES: 'getMessages',
+  DRIVER_STATUS: 'driverStatus',
+  UPDATE_DRIVER_LOCATION: 'updateDriverLocation',
+  LOCATION_BACKGROUND: 'locationBackground',
+  GET_PROFILE: 'getProfile',
+  UPDATE_PROFILE: 'updateProfile',
 } as const;
 
 //==================== Thunk Status =====================

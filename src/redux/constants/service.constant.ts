@@ -1,5 +1,5 @@
 //================== API BASE URL =======================
-export const API_BASE_URL = 'http://localhost:5001';
+export const API_BASE_URL = 'http://192.168.1.34:5001';
 //================== GET API URL =======================
 
 export const getApiUrl = (endpoint: string): string => {
@@ -18,6 +18,11 @@ export const SERVICE_ROUTES = {
   ACCEPT_REJECT: getApiUrl('/api/ride/accept-reject'),
   CANCEL_RIDE: getApiUrl('/api/ride/cancel/:rideId'),
   GET_MESSAGES: getApiUrl('/api/chat/:rideId'),
+  DRIVER_STATUS: getApiUrl('/api/driver/status/:driverId'),
+  UPDATE_DRIVER_LOCATION: getApiUrl('/api/driver/location'),
+  LOCATION_BACKGROUND: getApiUrl('/api/driver/location-background'),
+  GET_PROFILE: getApiUrl('/api/user/profile'),
+  UPDATE_PROFILE: getApiUrl('/api/user/profile'),
 } as const;
 
 //=================== METHODS ==============================

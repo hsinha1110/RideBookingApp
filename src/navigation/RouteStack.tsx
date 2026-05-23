@@ -10,7 +10,11 @@ import { RootStackParamList } from '@/screens/types';
 
 import { RootState, AppDispatch } from '@/redux/store';
 
-import { setAuthenticated, setUserType } from '@/redux/slices/authSlice';
+import {
+  setAuthenticated,
+  setRiderId,
+  setUserType,
+} from '@/redux/slices/authSlice';
 
 import { secureStorage } from '@/utils/secureStorage';
 
@@ -44,24 +48,23 @@ const Routes = () => {
     try {
       const token = await secureStorage.getItem('AUTH_TOKEN');
 
-      const storedUserType = await secureStorage.getItem('USER_TYPE');
+      const storedUser: any = await secureStorage.getObject('USER_DATA');
 
       console.log('TOKEN =>', token);
 
-      console.log('STORED USER TYPE =>', storedUserType);
+      console.log('STORED USER =>', storedUser);
 
-      if (token) {
+      if (token && storedUser) {
         dispatch(setAuthenticated(true));
 
-        if (storedUserType === 'driver' || storedUserType === 'rider') {
-          dispatch(setUserType(storedUserType));
-        }
+        dispatch(setUserType(storedUser.userType));
+
+        dispatch(setRiderId(storedUser._id));
       }
     } catch (error) {
       console.log(error, '======= CHECK LOGIN ERROR =======');
     }
   };
-
   return (
     <NavigationContainer>
       <Stack.Navigator

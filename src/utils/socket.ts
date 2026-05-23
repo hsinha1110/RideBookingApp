@@ -2,7 +2,7 @@ import { io } from 'socket.io-client';
 
 import { secureStorage } from '@/utils/secureStorage';
 
-const SOCKET_URL = 'http://localhost:5001';
+const SOCKET_URL = 'http://:5001';
 
 const socket = io(SOCKET_URL, {
   transports: ['websocket'],

@@ -15,3 +15,11 @@ export interface loginPayload {
 export interface sendOtpPayload {
   phoneNumber: string;
 }
+export interface VerifyOtpResponse {
+  user: {
+    _id: string;
+    fullName?: string;
+  };
+  token: string;
+  riderId?: string;
+}

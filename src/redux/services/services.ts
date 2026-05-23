@@ -10,16 +10,15 @@ import { secureStorage } from '@/utils/secureStorage';
 // SIGNUP
 //================================================
 
-export const signUpService = async (
-  data: SignUpPayload,
-): Promise<AxiosResponse> => {
+export const signUpService = async (data: FormData): Promise<AxiosResponse> => {
   try {
     const response = await axiosInterceptor({
       url: SERVICE_ROUTES.SIGN_UP,
-
       method: METHODS.POST,
-
       data,
+      headers: {
+        'Content-Type': 'multipart/form-data',
+      },
     });
 
     console.log(response.data, '======= SIGNUP RESPONSE =======');
@@ -31,7 +30,6 @@ export const signUpService = async (
     throw error;
   }
 };
-
 //================================================
 // LOGIN
 //================================================
@@ -259,7 +257,7 @@ export const allRiderRidesService = async (
 };
 export const acceptRejectRideService = async (data: {
   rideId: string;
-  status: 'accepted' | 'rejected';
+  status: 'accepted' | 'cancelled';
 }): Promise<AxiosResponse> => {
   try {
     const token = await secureStorage.getItem('AUTH_TOKEN');
@@ -360,6 +358,173 @@ export const getChatMessagesService = async (data: {
     return response;
   } catch (error: any) {
     console.log(error?.response?.data, '======= GET MESSAGES ERROR =======');
+
+    throw error;
+  }
+};
+export const getDriverStatusService = async (data: {
+  riderId: string;
+}): Promise<AxiosResponse> => {
+  try {
+    const token = await secureStorage.getItem('AUTH_TOKEN');
+
+    const response = await axiosInterceptor({
+      url: replaceUrl(SERVICE_ROUTES.DRIVER_STATUS, {
+        driverId: data.riderId,
+      }),
+
+      method: METHODS.GET,
+
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
+    });
+
+    return response;
+  } catch (error: any) {
+    throw error;
+  }
+};
+export const updateDriverLocationService = async (data: {
+  driverId: string;
+  lat: number;
+  lng: number;
+  heading?: number;
+  rideId?: string | null;
+}): Promise<AxiosResponse> => {
+  try {
+    const token = await secureStorage.getItem('AUTH_TOKEN');
+
+    console.log(data, '======= UPDATE DRIVER LOCATION PAYLOAD =======');
+
+    const response = await axiosInterceptor({
+      url: SERVICE_ROUTES.UPDATE_DRIVER_LOCATION,
+      method: METHODS.POST,
+
+      data: {
+        driverId: data.driverId,
+
+        lat: data.lat,
+
+        lng: data.lng,
+
+        heading: data.heading || 0,
+
+        rideId: data.rideId || null,
+      },
+
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
+    });
+
+    console.log(
+      response.data,
+      '======= UPDATE DRIVER LOCATION RESPONSE =======',
+    );
+
+    return response;
+  } catch (error: any) {
+    console.log(
+      error?.response?.data,
+      '======= UPDATE DRIVER LOCATION ERROR =======',
+    );
+
+    throw error;
+  }
+};
+
+export const updateBackgroundLocationService = async (data: {
+  driverId: string;
+
+  rideId: string;
+
+  latitude: number;
+
+  longitude: number;
+
+  heading?: number;
+}): Promise<AxiosResponse> => {
+  try {
+    const token = await secureStorage.getItem('AUTH_TOKEN');
+
+    const payload = {
+      driverId: data.driverId,
+
+      rideId: data.rideId,
+
+      location: {
+        coords: {
+          latitude: data.latitude,
+
+          longitude: data.longitude,
+
+          heading: data.heading || 0,
+        },
+      },
+    };
+
+    console.log(payload, '======= BACKGROUND LOCATION PAYLOAD =======');
+
+    const response = await axiosInterceptor({
+      url: SERVICE_ROUTES.LOCATION_BACKGROUND,
+
+      method: METHODS.POST,
+
+      data: payload,
+
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
+    });
+
+    console.log(response.data, '======= BACKGROUND LOCATION RESPONSE =======');
+
+    return response;
+  } catch (error: any) {
+    console.log(
+      error?.response?.data,
+      '======= BACKGROUND LOCATION ERROR =======',
+    );
+
+    throw error;
+  }
+};
+export const getProfileService = async (): Promise<AxiosResponse> => {
+  try {
+    const response = await axiosInterceptor({
+      url: SERVICE_ROUTES.GET_PROFILE,
+
+      method: METHODS.GET,
+    });
+
+    return response;
+  } catch (error: any) {
+    throw error;
+  }
+};
+
+export const updateProfileService = async (
+  data: FormData,
+): Promise<AxiosResponse> => {
+  try {
+    const response = await axiosInterceptor({
+      url: SERVICE_ROUTES.UPDATE_PROFILE,
+
+      method: METHODS.PUT,
+
+      data,
+
+      headers: {
+        'Content-Type': 'multipart/form-data',
+      },
+    });
+
+    console.log(response.data, '======= UPDATE PROFILE RESPONSE =======');
+
+    return response;
+  } catch (error: any) {
+    console.log(error?.response?.data, '======= UPDATE PROFILE ERROR =======');
 
     throw error;
   }

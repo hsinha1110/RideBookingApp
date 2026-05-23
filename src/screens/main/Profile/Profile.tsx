@@ -18,6 +18,7 @@ import { useDispatch, useSelector } from 'react-redux';
 import { AppDispatch, RootState } from '@/redux/store';
 
 import { allRiderRidesAsyncThunk } from '@/redux/thunk/thunk';
+import WrapperContainer from '@/components/WrapperContainer';
 
 //================================================
 // SCREEN
@@ -72,7 +73,7 @@ const ProfileScreen: FC = () => {
 
           <FastImage
             source={{
-              uri: item?.driver?.profileImage || 'https://i.pravatar.cc/300',
+              uri: 'https://i.pravatar.cc/300?img=12',
             }}
             style={styles.profileImage}
           />
@@ -160,7 +161,7 @@ const ProfileScreen: FC = () => {
   //================================================
 
   return (
-    <SafeAreaView style={styles.container}>
+    <WrapperContainer edges={['top', 'bottom']} style={styles.container}>
       {/* HEADER */}
 
       <Text style={styles.header}>My Rides</Text>
@@ -249,7 +250,7 @@ const ProfileScreen: FC = () => {
           }}
         />
       )}
-    </SafeAreaView>
+    </WrapperContainer>
   );
 };
 

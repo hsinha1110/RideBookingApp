@@ -9,3 +9,4 @@ export { default as SearchScreen } from '../screens/main/Search/Search';
 export { default as DriverHomeScreen } from '../screens/main/Home/DriverHomeScreen';
 export { default as RideConfirmationScreen } from '../screens/main/Home/RideConfirmationScreen';
 export { default as RideDetailsScreen } from '../screens/main/Home/RideDetailsScreen';
+export { default as UpdateProfileScreen } from '../screens/main/Profile/UpdateProfile';

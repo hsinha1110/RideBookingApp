@@ -22,7 +22,7 @@ import { getAddressFromLatLng, getCurrentLocation } from '@/utils/services';
 // GOOGLE MAP KEY
 //================================================
 
-const GOOGLE_MAPS_API_KEY = 'AIzaSyBULI91_DJ-q4eD1cvHsKKD_tvz6N7Uu6o';
+const GOOGLE_MAPS_API_KEY = 'AIzaSyBSrX-LTpLpIuYgJSS6G0pUfQl6Q-B0y7Y';
 
 //================================================
 // SCREEN
@@ -46,7 +46,7 @@ const RideConfirmationScreen: FC = () => {
   //================================================
 
   const [loading, setLoading] = useState(false);
-
+  const [rideStatus, setRideStatus] = useState('searching');
   const [currentLocation, setCurrentLocation] = useState(
     pickupLocation?.address || pickupLocation || 'Current Location',
   );
@@ -186,6 +186,8 @@ const RideConfirmationScreen: FC = () => {
     socket.on('rideAccepted', (data: any) => {
       console.log(data, '======= RIDE ACCEPTED =======');
 
+      setRideStatus('accepted');
+
       navigation.navigate('RideDetailsScreen', {
         pickupLocation: {
           latitude: Number(origin.latitude),
@@ -207,6 +209,31 @@ const RideConfirmationScreen: FC = () => {
       });
     });
 
+    socket.on('rideStarted', () => {
+      console.log('======= RIDE STARTED =======');
+
+      setRideStatus('ongoing');
+    });
+
+    socket.on('rideCompleted', () => {
+      console.log('======= RIDE COMPLETED =======');
+
+      setRideStatus('completed');
+
+      Alert.alert('Ride Completed');
+    });
+
+    socket.on('rideCancelled', () => {
+      Alert.alert('Ride Cancelled');
+
+      navigation.goBack();
+    });
+    socket.on('rideCancelled', (data: any) => {
+      console.log(data, '======= RIDE CANCELLED =======');
+
+      Alert.alert('Ride Cancelled', 'Driver rejected your ride request');
+      navigation.goBack();
+    });
     // CLEANUP
 
     return () => {
@@ -215,6 +242,8 @@ const RideConfirmationScreen: FC = () => {
       socket.off('connect_error');
 
       socket.off('rideAccepted');
+
+      socket.off('rideCancelled');
     };
   }, [currentLocation, origin, destination, destinationCoords]);
 

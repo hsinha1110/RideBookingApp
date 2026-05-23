@@ -8,59 +8,26 @@ import MapViewDirections from 'react-native-maps-directions';
 
 import { useNavigation, useRoute } from '@react-navigation/native';
 
-import { useDispatch } from 'react-redux';
-
 import socket from '@/utils/socket';
 
-import { cancelRideAsyncThunk } from '@/redux/thunk/thunk';
-
-import { AppDispatch } from '@/redux/store';
 import { scale } from '@/styles/scaling';
 
-//================================================
-// GOOGLE API
-//================================================
-
-const GOOGLE_MAPS_API_KEY = 'AIzaSyCB2sqGXzDeqvTrGp72iOa8fAuS1lPTNzI';
-
-//================================================
-// SCREEN
-//================================================
+const GOOGLE_MAPS_API_KEY = 'AIzaSyBSrX-LTpLpIuYgJSS6G0pUfQl6Q-B0y7Y';
 
 const RideDetailsScreen = () => {
-  //================================================
-  // ROUTE
-  //================================================
-
   const route = useRoute<any>();
 
   const { pickupLocation, destinationLocation, rideId } = route.params;
 
-  //================================================
-  // REFS
-  //================================================
+  const navigation = useNavigation<any>();
 
   const mapRef = useRef<MapView>(null);
 
-  const intervalRef = useRef<any>(null);
-  const navigation = useNavigation<any>();
-  //================================================
-  // REDUX
-  //================================================
-
-  const dispatch = useDispatch<AppDispatch>();
+  const [rideStatus, setRideStatus] = useState('Ride In Progress');
 
   //================================================
-  // STATES
+  // DRIVER LOCATION
   //================================================
-
-  const [routeCoordinates, setRouteCoordinates] = useState<any[]>([]);
-
-  const [isTracking, setIsTracking] = useState(false);
-
-  const [rideEnded, setRideEnded] = useState(false);
-
-  const [rideStatus, setRideStatus] = useState('Driver is coming');
 
   const [driverLocation, setDriverLocation] = useState({
     latitude: pickupLocation.latitude,
@@ -69,246 +36,130 @@ const RideDetailsScreen = () => {
   });
 
   //================================================
-  // SOCKET START ONLY AFTER START RIDE
+  // CAR ROTATION
   //================================================
 
+  const [carHeading, setCarHeading] = useState(0);
+
   //================================================
-  // MOVE CAR
+  // JOIN RIDE ROOM
   //================================================
 
   useEffect(() => {
-    if (routeCoordinates.length === 0 || !isTracking || rideEnded) {
-      return;
+    if (rideId) {
+      socket.emit('join_ride', rideId);
     }
+  }, [rideId]);
 
-    let index = 0;
+  //================================================
+  // DRIVER LOCATION UPDATE
+  //================================================
 
-    //================================================
-    // START MOVEMENT
-    //================================================
+  useEffect(() => {
+    socket.off('driverLocationUpdated');
 
-    intervalRef.current = setInterval(() => {
-      //================================================
-      // ARRIVED
-      //================================================
-
-      if (index >= routeCoordinates.length) {
-        //================================================
-        // STOP INTERVAL
-        //================================================
-
-        clearInterval(intervalRef.current);
-
-        //================================================
-        // STOP SOCKET
-        //================================================
-
-        socket.off('driverLocationUpdated', handleDriverLocation);
-
-        console.log('SOCKET STOPPED');
-
-        //================================================
-        // UPDATE STATES
-        //================================================
-
-        setRideStatus('Ride Completed');
-
-        setIsTracking(false);
-
-        setRideEnded(true);
-
-        console.log('RIDE COMPLETED');
-
+    socket.on('driverLocationUpdated', data => {
+      if (data.rideId !== rideId) {
         return;
       }
 
-      //================================================
-      // CURRENT POINT
-      //================================================
+      const latitude = Number(data.latitude);
 
-      const currentPoint = routeCoordinates[index];
+      const longitude = Number(data.longitude);
 
-      //================================================
+      //========================================
       // UPDATE DRIVER LOCATION
-      //================================================
+      //========================================
 
       setDriverLocation({
-        latitude: currentPoint.latitude,
+        latitude,
 
-        longitude: currentPoint.longitude,
+        longitude,
       });
 
-      index++;
-    }, 300);
+      //========================================
+      // UPDATE HEADING
+      //========================================
 
-    //================================================
-    // CLEANUP
-    //================================================
-    return () => {
-      clearInterval(intervalRef.current);
-    };
-  }, [routeCoordinates, isTracking, rideEnded]);
+      if (typeof data.heading === 'number') {
+        setCarHeading(data.heading);
+      }
 
-  //================================================
-  // CANCEL RIDE
-  //================================================
-  const handleDriverLocation = (data: any) => {
-    console.log(data, '======= DRIVER LOCATION UPDATED =======');
+      //========================================
+      // CAMERA FOLLOW
+      //========================================
 
-    //================================================
-    // SAME RIDE CHECK
-    //================================================
-
-    if (data.rideId !== rideId) {
-      return;
-    }
-
-    //================================================
-    // UPDATE DRIVER LOCATION
-    //================================================
-
-    setDriverLocation({
-      latitude: data.latitude,
-
-      longitude: data.longitude,
-    });
-  };
-  const handleCancelRide = async () => {
-    try {
-      //================================================
-      // STOP MOVEMENT
-      //================================================
-
-      clearInterval(intervalRef.current);
-
-      //================================================
-      // STOP SOCKET
-      //================================================
-
-      socket.off('driverLocationUpdated', handleDriverLocation);
-
-      //================================================
-      // STOP TRACKING
-      //================================================
-
-      setIsTracking(false);
-
-      setRideEnded(true);
-
-      //================================================
-      // API CALL
-      //================================================
-
-      await dispatch(
-        cancelRideAsyncThunk({
-          rideId,
-        }),
-      ).unwrap();
-
-      //================================================
-      // STATUS
-      //================================================
-
-      setRideStatus('Ride Cancelled');
-
-      //================================================
-      // RESET DRIVER
-      //================================================
-
-      setDriverLocation({
-        latitude: pickupLocation.latitude,
-
-        longitude: pickupLocation.longitude,
-      });
-
-      //================================================
-      // RESET MAP
-      //================================================
-
-      mapRef.current?.animateToRegion(
+      mapRef.current?.animateCamera(
         {
-          latitude: pickupLocation.latitude,
+          center: {
+            latitude,
 
-          longitude: pickupLocation.longitude,
+            longitude,
+          },
 
-          latitudeDelta: 0.05,
-
-          longitudeDelta: 0.05,
+          zoom: 16,
         },
-        1000,
+        {
+          duration: 1000,
+        },
       );
-
-      console.log('RIDE CANCELLED');
-    } catch (error) {
-      console.log(error, '======= CANCEL ERROR =======');
-    }
-  };
-
-  //================================================
-  // START RIDE
-  //================================================
-
-  const handleStartRide = () => {
-    //================================================
-    // ROUTE CHECK
-    //================================================
-
-    if (routeCoordinates.length === 0) {
-      console.log('ROUTE NOT READY');
-
-      return;
-    }
-
-    //================================================
-    // RESET STATES
-    //================================================
-
-    setRideEnded(false);
-
-    //================================================
-    // START TRACKING
-    //================================================
-
-    setIsTracking(true);
-
-    //================================================
-    // RESET CAR TO PICKUP
-    //================================================
-
-    setDriverLocation({
-      latitude: pickupLocation.latitude,
-
-      longitude: pickupLocation.longitude,
     });
 
-    //================================================
-    // REMOVE OLD LISTENER
-    //================================================
-
-    socket.off('driverLocationUpdated', handleDriverLocation);
-    //================================================
-    // START SOCKET
-    //================================================
-
-    socket.on('driverLocationUpdated', handleDriverLocation);
-
-    console.log('SOCKET STARTED');
-
-    //================================================
-    // STATUS
-    //================================================
-
-    setRideStatus('Ride Started');
-
-    console.log('RIDE STARTED');
-  };
+    return () => {
+      socket.off('driverLocationUpdated');
+    };
+  }, [rideId]);
 
   //================================================
-  // UI
+  // RIDE STARTED
   //================================================
+
+  useEffect(() => {
+    socket.off('rideStarted');
+
+    socket.on('rideStarted', data => {
+      if (data.rideId !== rideId) {
+        return;
+      }
+
+      setRideStatus('Ride In Progress');
+    });
+
+    return () => {
+      socket.off('rideStarted');
+    };
+  }, [rideId]);
+
+  //================================================
+  // RIDE COMPLETED
+  //================================================
+
+  useEffect(() => {
+    socket.off('rideCompleted');
+
+    socket.on('rideCompleted', data => {
+      if (data.rideId !== rideId) {
+        return;
+      }
+
+      setRideStatus('Ride Completed');
+    });
+
+    return () => {
+      socket.off('rideCompleted');
+    };
+  }, [rideId]);
+
+  //================================================
+  // CHAT
+  //================================================
+
   const handleChat = () => {
-    navigation.navigate('Chat', { rideId });
+    navigation.navigate('Chat', {
+      rideId,
+    });
   };
+
   return (
     <View style={styles.container}>
       {/*================================================
@@ -324,61 +175,34 @@ const RideDetailsScreen = () => {
 
           longitude: pickupLocation.longitude,
 
-          latitudeDelta: 0.05,
+          latitudeDelta: 0.03,
 
-          longitudeDelta: 0.05,
+          longitudeDelta: 0.03,
         }}
       >
         {/*================================================
-          POLYLINE
+          ROUTE
         =================================================*/}
 
         <MapViewDirections
           origin={{
-            latitude: Number(pickupLocation.latitude),
+            latitude: pickupLocation.latitude,
 
-            longitude: Number(pickupLocation.longitude),
+            longitude: pickupLocation.longitude,
           }}
           destination={{
-            latitude: Number(destinationLocation.latitude),
+            latitude: destinationLocation.latitude,
 
-            longitude: Number(destinationLocation.longitude),
+            longitude: destinationLocation.longitude,
           }}
           apikey={GOOGLE_MAPS_API_KEY}
           strokeWidth={6}
           strokeColor="#000"
           optimizeWaypoints
-          mode="DRIVING"
-          resetOnChange={false}
-          onReady={result => {
-            //================================================
-            // SAVE ROUTE
-            //================================================
-
-            setRouteCoordinates(result.coordinates);
-
-            //================================================
-            // FIT MAP
-            //================================================
-
-            mapRef.current?.fitToCoordinates(result.coordinates, {
-              edgePadding: {
-                top: 120,
-                right: 50,
-                bottom: 420,
-                left: 50,
-              },
-
-              animated: false,
-            });
-          }}
-          onError={error => {
-            console.log(error, '======= MAP ERROR =======');
-          }}
         />
 
         {/*================================================
-          PICKUP
+          PICKUP MARKER
         =================================================*/}
 
         <Marker
@@ -388,11 +212,10 @@ const RideDetailsScreen = () => {
             longitude: pickupLocation.longitude,
           }}
           title="Pickup"
-          description={pickupLocation.address}
         />
 
         {/*================================================
-          DESTINATION
+          DESTINATION MARKER
         =================================================*/}
 
         <Marker
@@ -403,7 +226,6 @@ const RideDetailsScreen = () => {
           }}
           pinColor="green"
           title="Destination"
-          description={destinationLocation.address}
         />
 
         {/*================================================
@@ -421,12 +243,19 @@ const RideDetailsScreen = () => {
             x: 0.5,
             y: 0.5,
           }}
+          rotation={carHeading}
         >
           <Image
             source={{
-              uri: 'https://cdn-icons-png.flaticon.com/512/744/744465.png',
+              uri: 'https://cdn-icons-png.flaticon.com/512/3774/3774278.png',
             }}
-            style={styles.carIcon}
+            style={{
+              width: 42,
+
+              height: 42,
+
+              resizeMode: 'contain',
+            }}
           />
         </Marker>
       </MapView>
@@ -446,8 +275,6 @@ const RideDetailsScreen = () => {
       =================================================*/}
 
       <View style={styles.bottomCard}>
-        {/* DRIVER */}
-
         <View style={styles.driverRow}>
           <Image
             source={{
@@ -456,11 +283,7 @@ const RideDetailsScreen = () => {
             style={styles.driverImage}
           />
 
-          <View
-            style={{
-              flex: 1,
-            }}
-          >
+          <View style={{ flex: 1 }}>
             <Text style={styles.driverName}>Kevin</Text>
 
             <Text style={styles.carDetails}>Swift Dzire • MP09AB1234</Text>
@@ -471,15 +294,11 @@ const RideDetailsScreen = () => {
           </TouchableOpacity>
         </View>
 
-        {/* PICKUP */}
-
         <View style={styles.infoRow}>
           <Text style={styles.infoLabel}>Pickup</Text>
 
           <Text style={styles.infoValue}>{pickupLocation.address}</Text>
         </View>
-
-        {/* DESTINATION */}
 
         <View style={styles.infoRow}>
           <Text style={styles.infoLabel}>Destination</Text>
@@ -487,28 +306,8 @@ const RideDetailsScreen = () => {
           <Text style={styles.infoValue}>{destinationLocation.address}</Text>
         </View>
 
-        {/*================================================
-          BUTTONS
-        =================================================*/}
-
-        <View style={styles.buttonRow}>
-          {/* CANCEL */}
-
-          <TouchableOpacity
-            style={styles.cancelButton}
-            onPress={handleCancelRide}
-          >
-            <Text style={styles.buttonText}>Cancel Ride</Text>
-          </TouchableOpacity>
-
-          {/* START */}
-
-          <TouchableOpacity
-            style={styles.trackButton}
-            onPress={handleStartRide}
-          >
-            <Text style={styles.buttonText}>Start Ride</Text>
-          </TouchableOpacity>
+        <View style={styles.statusContainer}>
+          <Text style={styles.statusContainerText}>{rideStatus}</Text>
         </View>
       </View>
     </View>
@@ -516,10 +315,6 @@ const RideDetailsScreen = () => {
 };
 
 export default RideDetailsScreen;
-
-//================================================
-// STYLES
-//================================================
 
 const styles = StyleSheet.create({
   container: {
@@ -654,51 +449,25 @@ const styles = StyleSheet.create({
     marginTop: 5,
   },
 
-  buttonRow: {
-    flexDirection: 'row',
-
-    marginTop: 20,
-  },
-
-  cancelButton: {
-    flex: 1,
-
-    backgroundColor: '#ff3b30',
-
-    paddingVertical: 18,
-
-    borderRadius: 16,
-
-    alignItems: 'center',
-
-    marginRight: 10,
-  },
-
-  trackButton: {
-    flex: 1,
-
+  statusContainer: {
     backgroundColor: '#000',
 
-    paddingVertical: 18,
+    paddingVertical: 16,
 
     borderRadius: 16,
 
     alignItems: 'center',
+
+    justifyContent: 'center',
+
+    marginTop: 10,
   },
 
-  buttonText: {
+  statusContainerText: {
     color: '#fff',
 
+    fontSize: 18,
+
     fontWeight: '700',
-
-    fontSize: 16,
-  },
-
-  carIcon: {
-    width: 45,
-
-    height: 45,
-
-    resizeMode: 'contain',
   },
 });

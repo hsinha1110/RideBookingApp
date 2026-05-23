@@ -46,7 +46,7 @@ export type MainStackParamList = {
   MainTabs: undefined;
 
   DriverHome: undefined;
-
+  UpdateProfile: undefined;
   Chat: {
     rideId: string;
   };
@@ -62,7 +62,12 @@ export type MainStackParamList = {
   };
 
   SearchScreen: {
-    location: string;
+    location: {
+      latitude: number;
+      longitude: number;
+    };
+
+    pickupAddress: string;
   };
 };
 

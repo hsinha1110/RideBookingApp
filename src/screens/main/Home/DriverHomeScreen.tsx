@@ -1,30 +1,46 @@
 import React, { FC, useEffect, useRef, useState } from 'react';
 
-import { StyleSheet, Switch, Text, TouchableOpacity, View } from 'react-native';
+import {
+  ActivityIndicator,
+  StyleSheet,
+  Switch,
+  Text,
+  TouchableOpacity,
+  View,
+} from 'react-native';
 
-import MapView, { Marker, PROVIDER_GOOGLE } from 'react-native-maps';
-
-import { SafeAreaView } from 'react-native-safe-area-context';
+import MapView, { PROVIDER_GOOGLE } from 'react-native-maps';
 
 import MapViewDirections from 'react-native-maps-directions';
 
-import { useDispatch } from 'react-redux';
+import { SafeAreaView } from 'react-native-safe-area-context';
 
-import { AppDispatch } from '@/redux/store';
+import { useDispatch, useSelector } from 'react-redux';
 
-import { acceptRejectAsyncThunk } from '@/redux/thunk/thunk';
+import { useNavigation } from '@react-navigation/native';
 
-import { getAddressFromLatLng, getCurrentLocation } from '@/utils/services';
+import {
+  acceptRejectAsyncThunk,
+  updateDriverLocationAsyncThunk,
+} from '@/redux/thunk/thunk';
+
+import { AppDispatch, RootState } from '@/redux/store';
+
+import {
+  getAddressFromLatLng,
+  watchCurrentLocation,
+  clearLocationWatcher,
+} from '@/utils/services';
 
 import socket, { connectSocket } from '@/utils/socket';
 
 import { moderateScale } from '@/styles/scaling';
-import { useNavigation } from '@react-navigation/native';
+
 //================================================
 // GOOGLE API
 //================================================
 
-const GOOGLE_MAPS_API_KEY = 'AIzaSyCB2sqGXzDeqvTrGp72iOa8fAuS1lPTNzI';
+const GOOGLE_MAP_KEY = 'YOUR_GOOGLE_MAP_KEY';
 
 //================================================
 // SCREEN
@@ -35,7 +51,21 @@ const DriverHomeScreen: FC = () => {
   // REFS
   //================================================
 
-  const intervalRef = useRef<any>(null);
+  const watchIdRef = useRef<any>(null);
+
+  //================================================
+  // NAVIGATION
+  //================================================
+
+  const navigation = useNavigation<any>();
+
+  //================================================
+  // REDUX
+  //================================================
+
+  const dispatch = useDispatch<AppDispatch>();
+
+  const driverId = useSelector((state: RootState) => state.auth.riderId);
 
   //================================================
   // STATES
@@ -48,25 +78,21 @@ const DriverHomeScreen: FC = () => {
   const [currentLocation, setCurrentLocation] = useState('');
 
   const [rideRequest, setRideRequest] = useState<any>(null);
-  const navigation = useNavigation<any>();
-  const [region, setRegion] = useState({
-    latitude: 22.7196,
 
-    longitude: 75.8577,
-
-    latitudeDelta: 0.01,
-
-    longitudeDelta: 0.01,
-  });
-
-  const dispatch = useDispatch<AppDispatch>();
+  const [region, setRegion] = useState<any>(null);
 
   //================================================
-  // INITIAL LOCATION
+  // START LIVE LOCATION
   //================================================
 
   useEffect(() => {
-    getUserCurrentLocation();
+    startLiveTracking();
+
+    return () => {
+      if (watchIdRef.current !== null) {
+        clearLocationWatcher(watchIdRef.current);
+      }
+    };
   }, []);
 
   //================================================
@@ -78,8 +104,6 @@ const DriverHomeScreen: FC = () => {
       socket.disconnect();
 
       socket.off('new_ride_request');
-
-      console.log('======= SOCKET OFF =======');
 
       return;
     }
@@ -93,107 +117,42 @@ const DriverHomeScreen: FC = () => {
 
       socket.off('new_ride_request');
 
-      socket.disconnect();
+      socket.off('rideCancelledByRider');
 
-      console.log('======= SOCKET DISCONNECTED =======');
+      socket.disconnect();
     };
   }, [isOnline]);
 
   //================================================
-  // LIVE DRIVER LOCATION
+  // START LIVE TRACKING
   //================================================
 
-  useEffect(() => {
-    //================================================
-    // ONLY START AFTER START RIDE
-    //================================================
+  const startLiveTracking = () => {
+    watchIdRef.current = watchCurrentLocation(async coords => {
+      const latitude = coords.latitude;
 
-    if (!rideRequest?._id || !isOnline || !isRideStarted) {
-      if (intervalRef.current) {
-        clearInterval(intervalRef.current);
+      const longitude = coords.longitude;
 
-        intervalRef.current = null;
+      setRegion({
+        latitude,
 
-        console.log('======= INTERVAL STOPPED =======');
+        longitude,
+
+        latitudeDelta: 0.01,
+
+        longitudeDelta: 0.01,
+      });
+
+      const response = await getAddressFromLatLng(latitude, longitude);
+
+      if (response?.formatted_address) {
+        setCurrentLocation(response.formatted_address);
       }
-
-      return;
-    }
-
-    //================================================
-    // CLEAR OLD INTERVAL
-    //================================================
-
-    if (intervalRef.current) {
-      clearInterval(intervalRef.current);
-    }
-
-    //================================================
-    // START INTERVAL
-    //================================================
-
-    intervalRef.current = setInterval(async () => {
-      try {
-        const coords = await getCurrentLocation();
-
-        //================================================
-        // UPDATE REGION
-        //================================================
-
-        setRegion({
-          latitude: coords.latitude,
-
-          longitude: coords.longitude,
-
-          latitudeDelta: 0.01,
-
-          longitudeDelta: 0.01,
-        });
-
-        //================================================
-        // SOCKET EMIT
-        //================================================
-
-        socket.emit('driverLocationUpdate', {
-          rideId: rideRequest._id,
-
-          latitude: coords.latitude,
-
-          longitude: coords.longitude,
-        });
-
-        console.log(
-          {
-            rideId: rideRequest._id,
-
-            latitude: coords.latitude,
-
-            longitude: coords.longitude,
-          },
-          '======= DRIVER LOCATION UPDATED =======',
-        );
-      } catch (error) {
-        console.log(error, '======= DRIVER LOCATION ERROR =======');
-      }
-    }, 3000);
-
-    //================================================
-    // CLEANUP
-    //================================================
-
-    return () => {
-      if (intervalRef.current) {
-        clearInterval(intervalRef.current);
-
-        intervalRef.current = null;
-
-        console.log('======= LOCATION INTERVAL CLEARED =======');
-      }
-    };
-  }, [rideRequest, isOnline, isRideStarted]);
+    });
+  };
 
   //================================================
-  // INITIALIZE SOCKET
+  // SOCKET INITIALIZE
   //================================================
 
   const initializeSocket = async () => {
@@ -231,9 +190,19 @@ const DriverHomeScreen: FC = () => {
 
         setRideRequest(ride);
 
-        //================================================
-        // RESET START STATE
-        //================================================
+        setIsRideStarted(false);
+      });
+
+      //================================================
+      // RIDER CANCELLED
+      //================================================
+
+      socket.off('rideCancelledByRider');
+
+      socket.on('rideCancelledByRider', (data: any) => {
+        console.log(data, '======= RIDER CANCELLED =======');
+
+        setRideRequest(null);
 
         setIsRideStarted(false);
       });
@@ -243,44 +212,10 @@ const DriverHomeScreen: FC = () => {
   };
 
   //================================================
-  // GET CURRENT LOCATION
-  //================================================
-
-  const getUserCurrentLocation = async () => {
-    try {
-      const coords = await getCurrentLocation();
-
-      const latitude = coords.latitude;
-
-      const longitude = coords.longitude;
-
-      setRegion({
-        latitude,
-
-        longitude,
-
-        latitudeDelta: 0.01,
-
-        longitudeDelta: 0.01,
-      });
-
-      const response = await getAddressFromLatLng(latitude, longitude);
-
-      const fullAddress = response?.formatted_address;
-
-      if (fullAddress) {
-        setCurrentLocation(fullAddress);
-      }
-    } catch (error) {
-      console.log(error, '======= LOCATION ERROR =======');
-    }
-  };
-
-  //================================================
   // ACCEPT / REJECT
   //================================================
 
-  const handleRideAction = async (action: 'accepted' | 'rejected') => {
+  const handleRideAction = async (action: 'accepted' | 'cancelled') => {
     try {
       if (!rideRequest?._id) {
         return;
@@ -292,13 +227,7 @@ const DriverHomeScreen: FC = () => {
         status: action,
       };
 
-      console.log(payload, '======= RIDE ACTION PAYLOAD =======');
-
-      const response: any = await dispatch(
-        acceptRejectAsyncThunk(payload),
-      ).unwrap();
-
-      console.log(response, '======= RIDE ACTION RESPONSE =======');
+      await dispatch(acceptRejectAsyncThunk(payload)).unwrap();
 
       //================================================
       // ACCEPTED
@@ -307,14 +236,18 @@ const DriverHomeScreen: FC = () => {
       if (action === 'accepted') {
         socket.emit('join_ride', rideRequest._id);
 
-        console.log('======= RIDE JOINED =======');
+        setRideRequest((prev: any) => ({
+          ...prev,
+
+          status: 'accepted',
+        }));
       }
 
       //================================================
-      // REJECTED
+      // CANCELLED
       //================================================
 
-      if (action === 'rejected') {
+      if (action === 'cancelled') {
         setRideRequest(null);
 
         setIsRideStarted(false);
@@ -325,100 +258,73 @@ const DriverHomeScreen: FC = () => {
   };
 
   //================================================
-  // START RIDE
+  // CHAT
   //================================================
 
-  const handleStartRide = () => {
-    setIsRideStarted(true);
-
-    console.log('======= RIDE STARTED =======');
+  const handleChat = () => {
+    navigation.navigate('Chat', {
+      rideId: rideRequest?._id,
+    });
   };
 
   //================================================
-  // CANCEL RIDE
+  // LOADER
   //================================================
 
-  const handleCancelRide = () => {
-    //================================================
-    // STOP INTERVAL
-    //================================================
-
-    if (intervalRef.current) {
-      clearInterval(intervalRef.current);
-
-      intervalRef.current = null;
-    }
-
-    //================================================
-    // RESET STATES
-    //================================================
-
-    setIsRideStarted(false);
-
-    setRideRequest(null);
-
-    console.log('======= RIDE CANCELLED =======');
-  };
+  if (!region) {
+    return (
+      <View style={styles.loaderContainer}>
+        <ActivityIndicator size="large" color="black" />
+      </View>
+    );
+  }
 
   //================================================
   // UI
   //================================================
-  const handleChat = () => {
-    navigation.navigate('Chat', { rideId: rideRequest?._id });
-  };
-  //================================================
-  // NAVIGATE TO CHAT WITH RIDE ID
-  //================================================
+
   return (
     <SafeAreaView style={styles.container}>
-      {/* MAP */}
+      {/*================================================
+        MAP
+      =================================================*/}
 
       <MapView
         provider={PROVIDER_GOOGLE}
         style={styles.map}
-        initialRegion={region}
-        showsUserLocation={false}
+        region={region}
+        showsUserLocation={true}
+        followsUserLocation={true}
         showsMyLocationButton={true}
       >
-        {/* ROUTE */}
+        {/*================================================
+          ROUTE
+        =================================================*/}
 
-        {rideRequest &&
-          rideRequest?.pickupLocation &&
-          rideRequest?.destinationLocation && (
-            <MapViewDirections
-              origin={{
-                latitude: Number(rideRequest?.pickupLocation?.latitude || 0),
+        {rideRequest?.pickupLocation && rideRequest?.destinationLocation && (
+          <MapViewDirections
+            origin={{
+              latitude: Number(rideRequest?.pickupLocation?.latitude || 0),
 
-                longitude: Number(rideRequest?.pickupLocation?.longitude || 0),
-              }}
-              destination={{
-                latitude: Number(
-                  rideRequest?.destinationLocation?.latitude || 0,
-                ),
+              longitude: Number(rideRequest?.pickupLocation?.longitude || 0),
+            }}
+            destination={{
+              latitude: Number(rideRequest?.destinationLocation?.latitude || 0),
 
-                longitude: Number(
-                  rideRequest?.destinationLocation?.longitude || 0,
-                ),
-              }}
-              apikey={GOOGLE_MAPS_API_KEY}
-              strokeWidth={5}
-              strokeColor="black"
-              optimizeWaypoints={true}
-            />
-          )}
-
-        {/* DRIVER MARKER */}
-
-        <Marker
-          coordinate={{
-            latitude: region.latitude,
-
-            longitude: region.longitude,
-          }}
-        />
+              longitude: Number(
+                rideRequest?.destinationLocation?.longitude || 0,
+              ),
+            }}
+            apikey={GOOGLE_MAP_KEY}
+            strokeWidth={5}
+            strokeColor="black"
+          />
+        )}
       </MapView>
 
-      {/* TOP CARD */}
+      {/*================================================
+        TOP CARD
+      =================================================*/}
 
       <View style={styles.topCard}>
         <View>
@@ -435,78 +341,176 @@ const DriverHomeScreen: FC = () => {
 
         <Switch
           value={isOnline}
-          onValueChange={value => {
+          onValueChange={async value => {
             setIsOnline(value);
+
+            if (value && driverId && region) {
+              try {
+                await dispatch(
+                  updateDriverLocationAsyncThunk({
+                    driverId,
+
+                    lat: region.latitude,
+
+                    lng: region.longitude,
+
+                    heading: 0,
+                  }),
+                ).unwrap();
+              } catch (error) {
+                console.log(error, '======= UPDATE LOCATION ERROR =======');
+              }
+            }
           }}
         />
       </View>
 
-      {/* RIDE CARD */}
+      {/*================================================
+        CURRENT LOCATION CARD
+      =================================================*/}
+
+      <View style={styles.currentLocationCard}>
+        <Text style={styles.currentLocationLabel}>Current Location</Text>
+
+        <Text style={styles.currentLocationText}>
+          {currentLocation || 'Fetching current location...'}
+        </Text>
+      </View>
+
+      {/*================================================
+        RIDE CARD
+      =================================================*/}
 
       {isOnline && rideRequest && (
         <View style={styles.bottomCard}>
           <View style={styles.dragLine} />
 
-          <Text style={styles.title}>Available Ride</Text>
+          {/*================================================
+            PENDING
+          =================================================*/}
 
-          <View style={styles.rideCard}>
-            <Text style={styles.userName}>
-              {rideRequest?.rider?.fullName || 'Rider'}
-            </Text>
+          {rideRequest?.status === 'pending' && (
+            <>
+              <Text style={styles.title}>New Ride Request</Text>
 
-            <Text style={styles.label}>Pickup</Text>
+              <View style={styles.rideCard}>
+                <Text style={styles.userName}>
+                  {rideRequest?.rider?.fullName || 'Rider'}
+                </Text>
 
-            <Text style={styles.address}>
-              {rideRequest?.pickupLocation?.address}
-            </Text>
+                <Text style={styles.label}>Pickup</Text>
 
-            <Text style={styles.label}>Destination</Text>
+                <Text style={styles.address}>
+                  {rideRequest?.pickupLocation?.address}
+                </Text>
 
-            <Text style={styles.address}>
-              {rideRequest?.destinationLocation?.address}
-            </Text>
+                <Text style={styles.label}>Destination</Text>
 
-            <View
-              style={{
-                flexDirection: 'row',
-                justifyContent: 'space-between',
-                alignItems: 'center',
-              }}
-            >
-              <Text style={styles.fare}>₹{rideRequest?.fare || 0}</Text>
-              <TouchableOpacity onPress={handleChat} style={styles.chatButton}>
-                <Text style={styles.chatText}>Chat</Text>
-              </TouchableOpacity>
-            </View>
+                <Text style={styles.address}>
+                  {rideRequest?.destinationLocation?.address}
+                </Text>
 
-            {/* BUTTONS */}
+                <View style={styles.buttonRow}>
+                  <TouchableOpacity
+                    onPress={() => handleRideAction('cancelled')}
+                    style={styles.rejectBtn}
+                  >
+                    <Text style={styles.btnText}>Reject</Text>
+                  </TouchableOpacity>
 
-            <View style={styles.buttonRow}>
-              {/* REJECT */}
+                  <TouchableOpacity
+                    onPress={() => handleRideAction('accepted')}
+                    style={styles.acceptBtn}
+                  >
+                    <Text style={styles.btnText}>Accept</Text>
+                  </TouchableOpacity>
+                </View>
+              </View>
+            </>
+          )}
 
-              <TouchableOpacity
-                activeOpacity={0.8}
-                onPress={() => {
-                  handleRideAction('rejected');
-                }}
-                style={styles.rejectBtn}
-              >
-                <Text style={styles.btnText}>Reject</Text>
-              </TouchableOpacity>
+          {/*================================================
+            ACCEPTED
+          =================================================*/}
 
-              {/* ACCEPT */}
+          {rideRequest?.status === 'accepted' && (
+            <>
+              <Text style={styles.title}>Driver is coming</Text>
 
-              <TouchableOpacity
-                activeOpacity={0.8}
-                onPress={() => {
-                  handleRideAction('accepted');
-                }}
-                style={styles.acceptBtn}
-              >
-                <Text style={styles.btnText}>Accept</Text>
-              </TouchableOpacity>
-            </View>
-          </View>
+              <View style={styles.rideCard}>
+                <Text style={styles.userName}>
+                  {rideRequest?.rider?.fullName}
+                </Text>
+
+                <Text style={styles.address}>
+                  {rideRequest?.pickupLocation?.address}
+                </Text>
+
+                <TouchableOpacity
+                  onPress={() => {
+                    socket.emit('rideStarted', {
+                      rideId: rideRequest?._id,
+                    });
+
+                    setIsRideStarted(true);
+
+                    setRideRequest((prev: any) => ({
+                      ...prev,
+
+                      status: 'ongoing',
+                    }));
+                  }}
+                  style={styles.acceptBtn}
+                >
+                  <Text style={styles.btnText}>Start Ride</Text>
+                </TouchableOpacity>
+              </View>
+            </>
+          )}
+
+          {/*================================================
+            ONGOING
+          =================================================*/}
+
+          {rideRequest?.status === 'ongoing' && (
+            <>
+              <Text style={styles.title}>Ride In Progress</Text>
+
+              <View style={styles.rideCard}>
+                <Text style={styles.userName}>
+                  {rideRequest?.rider?.fullName}
+                </Text>
+
+                <Text style={styles.address}>
+                  {rideRequest?.destinationLocation?.address}
+                </Text>
+
+                <View style={styles.buttonRow}>
+                  <TouchableOpacity
+                    onPress={handleChat}
+                    style={styles.rejectBtn}
+                  >
+                    <Text style={styles.btnText}>Chat</Text>
+                  </TouchableOpacity>
+
+                  <TouchableOpacity
+                    onPress={() => {
+                      socket.emit('rideCompleted', {
+                        rideId: rideRequest?._id,
+                      });
+
+                      setRideRequest(null);
+
+                      setIsRideStarted(false);
+                    }}
+                    style={styles.acceptBtn}
+                  >
+                    <Text style={styles.btnText}>Complete Ride</Text>
+                  </TouchableOpacity>
+                </View>
+              </View>
+            </>
+          )}
         </View>
       )}
     </SafeAreaView>
@@ -522,6 +526,14 @@ export default DriverHomeScreen;
 const styles = StyleSheet.create({
   container: {
     flex: 1,
+  },
+
+  loaderContainer: {
+    flex: 1,
+
+    justifyContent: 'center',
+
+    alignItems: 'center',
   },
 
   map: {
@@ -566,6 +578,40 @@ const styles = StyleSheet.create({
     color: '#666',
 
     marginTop: 4,
+  },
+
+  currentLocationCard: {
+    position: 'absolute',
+
+    top: moderateScale(170),
+
+    left: 20,
+
+    right: 20,
+
+    backgroundColor: '#fff',
+
+    borderRadius: 18,
+
+    padding: 16,
+
+    elevation: 5,
+  },
+
+  currentLocationLabel: {
+    fontSize: 13,
+
+    color: '#777',
+
+    marginBottom: 6,
+  },
+
+  currentLocationText: {
+    fontSize: 15,
+
+    fontWeight: '600',
+
+    color: '#000',
   },
 
   bottomCard: {
@@ -648,18 +694,6 @@ const styles = StyleSheet.create({
     marginBottom: 14,
   },
 
-  fare: {
-    fontSize: 28,
-
-    fontWeight: '700',
-
-    color: 'green',
-
-    marginTop: 5,
-
-    marginBottom: 20,
-  },
-
   buttonRow: {
     flexDirection: 'row',
   },
@@ -681,7 +715,7 @@ const styles = StyleSheet.create({
   rejectBtn: {
     flex: 1,
 
-    backgroundColor: 'red',
+    backgroundColor: '#222',
 
     paddingVertical: 14,
 
@@ -698,20 +732,5 @@ const styles = StyleSheet.create({
     fontWeight: '700',
 
     fontSize: 15,
-  },
-  chatButton: {
-    backgroundColor: 'green',
-
-    paddingHorizontal: 20,
-
-    paddingVertical: 10,
-
-    borderRadius: 50,
-  },
-
-  chatText: {
-    color: '#fff',
-
-    fontWeight: '700',
   },
 });

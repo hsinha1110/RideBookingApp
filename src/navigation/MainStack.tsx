@@ -13,6 +13,7 @@ import {
   SearchScreen,
   RideConfirmationScreen,
   RideDetailsScreen,
+  UpdateProfileScreen,
 } from '@/screens';
 
 import { MainStackParamList } from '../screens/types';
@@ -111,8 +112,8 @@ export const MainStack = () => {
         component={RideConfirmationScreen}
       />
       <Stack.Screen name="RideDetailsScreen" component={RideDetailsScreen} />
-
       <Stack.Screen name="Chat" component={ChatScreen} />
+      <Stack.Screen name="UpdateProfile" component={UpdateProfileScreen} />
     </Stack.Navigator>
   );
 };
